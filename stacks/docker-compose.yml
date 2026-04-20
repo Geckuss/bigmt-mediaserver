@@ -85,7 +85,7 @@ services:
       interval: 15s
       retries: 3
     restart: unless-stopped
-    
+
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
@@ -141,4 +141,36 @@ services:
     volumes:
       - ${CONFIGS}/pihole/etc-pihole:/etc/pihole
       - ${CONFIGS}/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    restart: unless-stopped
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    ports:
+      - ${UPTIME_KUMA_PORT:-3001}:3001
+    volumes:
+      - ${CONFIGS}/uptime-kuma:/app/data
+    restart: unless-stopped
+
+  backrest:
+    image: garethgeorge/backrest:latest
+    container_name: backrest
+    hostname: backrest
+    ports:
+      - ${BACKREST_PORT:-9898}:9898
+    volumes:
+      - ${CONFIGS}/backrest/data:/data
+      - ${CONFIGS}/backrest/config:/config
+      - ${CONFIGS}/backrest/cache:/cache
+      # Sources (read-only)
+      - ${CONFIGS}:/userdata/configs:ro
+      - ${UPLOAD_LOCATION}:/userdata/immich-uploads:ro
+      - ${DATA}/media:/userdata/media:ro
+      # Backup drives (mount points exist even when unplugged)
+      - /mnt/backup-5tb:/repos/primary
+      - /mnt/backup-1tb:/repos/secondary
+    environment:
+      - BACKREST_DATA=/data
+      - BACKREST_CONFIG=/config/config.json
+      - XDG_CACHE_HOME=/cache
     restart: unless-stopped

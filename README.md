@@ -27,6 +27,8 @@ Self-hosted mediaserver running on **bigmt**, managed with Docker and Portainer.
 | **qBittorrent** | Torrent client | 8080 |
 | **HandBrake** | Video transcoding (web UI) | 5800 |
 | **Pi-hole** | DNS ad blocker | host mode |
+| **Backrest** | Backup management (restic) | 9898 |
+| **Uptime Kuma** | Status monitoring | 3001 |
 
 ### Immich Stack (`stacks/immich.yml`)
 
@@ -37,11 +39,17 @@ Self-hosted mediaserver running on **bigmt**, managed with Docker and Portainer.
 | **Redis (Valkey)** | Cache | internal |
 | **PostgreSQL** | Database (vectorchord+pgvectors) | internal |
 
+### Valheim Stack (`stacks/valheim.yml`)
+
+| Service | Description | Port |
+|---------|-------------|------|
+| **Valheim** | Dedicated game server | 2456-2457/udp |
+
 ## Setup
 
 1. Clone the repo:
    ```bash
-   git clone https://github.com/<user>/bigmt-mediaserver.git
+   git clone https://github.com/Geckuss/bigmt-mediaserver.git
    cd bigmt-mediaserver
    ```
 
@@ -55,6 +63,7 @@ Self-hosted mediaserver running on **bigmt**, managed with Docker and Portainer.
    ```bash
    docker compose -f stacks/docker-compose.yml --env-file .env up -d
    docker compose -f stacks/immich.yml --env-file .env up -d
+   docker compose -f stacks/valheim.yml --env-file .env up -d
    ```
 
 ## Directory Structure
@@ -62,17 +71,27 @@ Self-hosted mediaserver running on **bigmt**, managed with Docker and Portainer.
 ```
 .
 ├── stacks/
-│   ├── docker-compose.yml   # Main stack (Jellyfin, *arr, etc.)
-│   └── immich.yml           # Immich photo management stack
+│   ├── docker-compose.yml   # Main stack (Jellyfin, *arr, backrest, etc.)
+│   ├── immich.yml           # Immich photo management stack
+│   └── valheim.yml          # Valheim game server
 ├── .env.example             # Environment variable template
 ├── AGENTS.md                # Agent instructions for this project
 └── README.md
 ```
+
+## Backup
+
+**Backrest** manages backups via restic to two external drives:
+- `/mnt/backup-5tb` — primary backup repository
+- `/mnt/backup-1tb` — secondary backup repository
+
+Backed up sources: service configs, Immich uploads, media library.
 
 ## Notes
 
 - Jellyfin and Pi-hole use `network_mode: host` for DLNA discovery and DNS respectively
 - Radarr/Sonarr mount custom scripts (`extract-subs.sh`, `install-ffmpeg.sh`)
 - Immich ML uses the CUDA variant for GPU-accelerated inference
+- Uptime Kuma, Backrest, and Pi-hole provide monitoring, backups, and DNS ad-blocking
 - All service configs persist under `${CONFIGS}/`
 - Media and downloads live under `${DATA}/`
