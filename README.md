@@ -108,9 +108,42 @@ Pi-hole runs in host mode on bigmt, providing DNS-level ad blocking for the loca
 
 - **Upstream DNS**: Cloudflare (`1.1.1.1`), Google (`8.8.8.8`)
 - **Web UI port**: 8089
+- **Listening mode**: LOCAL (local subnets only)
 - **CNAME deep inspection**: enabled
 - **ESNI blocking**: enabled
-- No custom adlists, groups, or local DNS records configured (defaults only)
+- **DNSSEC**: disabled
+- **Block TTL**: 2 seconds
+
+### Adlists
+
+| List | Description |
+|------|-------------|
+| [StevenBlack/hosts](https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts) | Default unified hosts (migrated from initial setup) |
+| [nordic-dns-blocklist](https://raw.githubusercontent.com/PaulSorensen/nordic-dns-blocklist/main/hosts) | Nordic region DNS blocklist |
+
+### Non-default settings
+
+Only `dns.upstreams`, `webserver.api.pwhash`, and `files.macvendor` are changed from defaults. Everything else (DHCP, local DNS records, groups, etc.) is at default.
+
+## Uptime Kuma
+
+Uptime Kuma monitors all services via their public reverse-proxied URLs. All monitors use HTTP checks with 1-hour intervals, expecting `200-299` status codes.
+
+| Monitor | URL |
+|---------|-----|
+| Jellyfin | `https://jellyfin.bigmt.dynv6.net` |
+| Sonarr | `https://sonarr.bigmt.dynv6.net/api/v3/health` |
+| Radarr | `https://radarr.bigmt.dynv6.net` |
+| Jellyseerr | `https://jellyseerr.bigmt.dynv6.net` |
+| Bazarr | `https://bazarr.bigmt.dynv6.net/api/system/health` |
+| Prowlarr | `https://prowlarr.bigmt.dynv6.net` |
+| qBittorrent | `https://qbittorrent.bigmt.dynv6.net` |
+| Immich | `https://immich.bigmt.dynv6.net` |
+| Pi-hole | `https://pihole.bigmt.dynv6.net/admin` |
+| Portainer | `https://portainer.bigmt.dynv6.net` |
+| Cockpit | `https://cockpit.bigmt.dynv6.net` |
+
+**Notifications**: Discord webhook (channel: "Kuma webhook")
 
 ## Media Library
 
