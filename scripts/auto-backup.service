@@ -1,0 +1,14 @@
+[Unit]
+Description=Auto-backup when backup drive is connected
+After=network-online.target docker.service
+Wants=network-online.target
+# Only run when triggered (by udev), not on boot
+RefuseManualStop=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/auto-backup.sh
+TimeoutStartSec=18000
+# 5 hour total timeout (covers both plans + overhead)
+StandardOutput=journal
+StandardError=journal

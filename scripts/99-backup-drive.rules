@@ -1,0 +1,3 @@
+# /etc/udev/rules.d/99-backup-drive.rules
+# When the backup drive (LABEL=backup-5tb) is connected, trigger the auto-backup service.
+ACTION=="add", ENV{ID_FS_LABEL}=="backup-5tb", TAG+="systemd", ENV{SYSTEMD_WANTS}="auto-backup.service"

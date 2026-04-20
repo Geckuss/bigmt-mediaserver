@@ -220,10 +220,31 @@ Prefer 1080p for small capacity and satisfactory quality paired with Nvidia Shie
 
 **Backup plans:**
 
-| Plan         | Sources                                 | Retention           |
-| ------------ | --------------------------------------- | ------------------- |
-| **critical** | Service configs, Immich uploads         | 3 weekly, 3 monthly |
-| **media**    | Media library (excludes Immich gallery) | 2 monthly           |
+| Plan         | Sources                                 | Retention           | Cooldown |
+| ------------ | --------------------------------------- | ------------------- | -------- |
+| **critical** | Service configs, Immich uploads         | 3 weekly, 3 monthly | 30 days  |
+| **media**    | Media library (excludes Immich gallery) | 2 monthly           | 90 days  |
+
+### Auto-backup on drive plug
+
+When the backup drive (`LABEL=backup-5tb`) is plugged in, a udev rule triggers an automated backup flow:
+
+1. udev detects the drive → triggers `auto-backup.service`
+2. Script mounts the drive to `/mnt/backup-5tb`
+3. Checks each plan's cooldown via Backrest API (skips if too recent)
+4. Triggers eligible plans sequentially (critical first, then media)
+5. Unmounts the drive when all plans complete
+
+**Files on server:**
+
+| File | Location |
+|------|----------|
+| Script | `/usr/local/bin/auto-backup.sh` |
+| Credentials | `/etc/backrest-api-credentials` (root-only, chmod 600) |
+| udev rule | `/etc/udev/rules.d/99-backup-drive.rules` |
+| systemd service | `/etc/systemd/system/auto-backup.service` |
+
+**Monitoring:** `sudo journalctl -u auto-backup.service -f`
 
 ## Custom Scripts
 
@@ -275,6 +296,9 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 ├── proxy/
 │   └── Caddyfile              # Caddy reverse proxy config (runs on Oracle Cloud)
 ├── scripts/
+│   ├── auto-backup.sh         # Auto-backup script (triggered by udev on drive plug)
+│   ├── auto-backup.service    # systemd oneshot service for auto-backup
+│   ├── 99-backup-drive.rules  # udev rule to detect backup drive
 │   ├── extract-subs.sh        # ASS/SSA to SRT subtitle extractor for Radarr/Sonarr
 │   └── install-ffmpeg.sh      # ffmpeg installer for LinuxServer containers
 ├── stacks/

@@ -73,4 +73,6 @@
 - Immich ML uses the CUDA variant for GPU-accelerated machine learning
 - Pi-hole uses Cloudflare (1.1.1.1) and Google (8.8.8.8) as upstream DNS
 - Backrest backs up configs + Immich uploads (3 weekly, 3 monthly) and media (2 monthly) to 5TB drive
+- Auto-backup: udev rule triggers backup on drive plug, with cooldowns (critical: 30d, media: 90d)
+- Backrest API credentials stored in `/etc/backrest-api-credentials` (root-only)
 - Both Radarr and Sonarr use qBittorrent as download client
