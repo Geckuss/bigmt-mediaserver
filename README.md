@@ -313,6 +313,56 @@ Prefer 1080p for small capacity and satisfactory quality paired with Nvidia Shie
 **Radarr:** `Language: Prefer English`
 **Sonarr:** `Language: Prefer English`, `Block exe`
 
+## Jellyfin
+
+Jellyfin is the primary media server, using the GTX 1070 for hardware-accelerated transcoding.
+
+### Libraries
+
+| Library | Content Path |
+|---------|-------------|
+| Movies | `/data/media/movies` |
+| Shows | `/data/media/shows` |
+| Recorded Movies | `/data/media/recorded/movies` |
+| Recorded Shows | `/data/media/recorded/shows` |
+| Recordings | `/data/media/recorded/recordings` |
+
+### Hardware Transcoding
+
+- **Acceleration**: NVIDIA NVENC
+- **Decoder**: Enhanced NVDEC enabled
+- **Encoding presets**: H.264 CRF 23, H.265 CRF 28
+- **Metadata country**: FI (Finland)
+
+Config files on server: `${CONFIGS}/jellyfin-config/config/encoding.xml`, `${CONFIGS}/jellyfin-config/config/system.xml`
+
+## qBittorrent
+
+| Setting | Value |
+|---------|-------|
+| **Save path** | `/data/downloads` |
+| **WebUI user** | `root` |
+| **Max active downloads** | 15 |
+| **Max active torrents** | 15 |
+| **Auto-run on download** | `chmod -R 770 "%F/"` |
+| **File filter** | Excludes `*.exe` |
+| **Alt speed limits** | 10000 KB/s down, 1000 KB/s up |
+| **Port forwarding** | Enabled (UPnP) |
+| **Proxy** | NordVPN SOCKS configured but currently disabled (Type=None) |
+
+## Immich
+
+Immich v2.7.5 provides photo/video management with GPU-accelerated machine learning.
+
+- **Uploads**: `/data/media/gallery`
+- **ML**: CUDA variant using GTX 1070
+- **Config**: Stored in PostgreSQL (no config file)
+- **Database data**: `${CONFIGS}/immich-config/postgres/`
+
+## Cockpit
+
+Cockpit v352 is installed natively (not containerized) for server management. Accessible on port 9090, reverse-proxied via `cockpit.bigmt.dynv6.net`.
+
 ## Backup
 
 **Backrest** manages backups via restic with Discord notifications on success/failure.
@@ -376,13 +426,12 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
    # Edit .env with your actual values
    ```
 
-3. Deploy stacks via Portainer, or manually:
+3. Deploy stacks via **Portainer** (Stacks → Add stack → paste compose file contents, add env vars from `.env`):
+   - Main stack from `stacks/docker-compose.yml`
+   - Immich stack from `stacks/immich.yml`
+   - Valheim stack from `stacks/valheim.yml`
 
-   ```bash
-   docker compose -f stacks/docker-compose.yml --env-file .env up -d
-   docker compose -f stacks/immich.yml --env-file .env up -d
-   docker compose -f stacks/valheim.yml --env-file .env up -d
-   ```
+   > **Do not** use `docker compose` CLI — Portainer manages all stacks and CLI-created containers cause naming conflicts.
 
 4. Deploy the Caddyfile on the Oracle Cloud instance:
    ```bash
