@@ -2,52 +2,65 @@
 
 ## Access
 
-- **SSH**: `ssh bigmt`
+- **SSH bigmt**: `ssh bigmt`
+- **SSH oci**: `ssh oci`
 - **Management**: Portainer (Docker)
 
 ## Architecture
 
 ```
-[Internet] → [Oracle Cloud (proxy via Tailscale)] → [bigmt (mediaserver)]
+[Internet] --> [Oracle Cloud / Caddy] --Tailscale--> [bigmt (mediaserver)]
 ```
 
 - **bigmt**: Main mediaserver running all services via Docker/Portainer
-- **Oracle server**: Reverse proxy, connected to bigmt over Tailscale
-- **GPU**: NVIDIA (used by Jellyfin, Immich for hardware transcoding/ML)
+- **oci (Oracle Cloud)**: Reverse proxy running Caddy, connected to bigmt over Tailscale
+- **GPU**: NVIDIA GTX 1070 (used by Jellyfin for transcoding, Immich for ML)
+- **DNS**: `*.bigmt.dynv6.net` → Oracle Cloud public IP → Caddy → bigmt via `bigmt.tahr-fort.ts.net`
 
 ## Docker Stacks (Portainer)
 
 ### Main Stack
 
-| Service      | Image                                      | Port        |
-| ------------ | ------------------------------------------ | ----------- |
-| Jellyfin     | jellyfin/jellyfin                          | host mode   |
-| Radarr       | linuxserver/radarr                         | ${RADARR_PORT}:7878 |
-| Sonarr       | linuxserver/sonarr                         | ${SONARR_PORT}:8989 |
-| Bazarr       | linuxserver/bazarr                         | ${BAZARR_PORT}:6767 |
-| Jellyseerr   | fallenbagel/jellyseerr                     | 5055:5055   |
-| Prowlarr     | linuxserver/prowlarr                       | ${PROWLARR_PORT}:9696 |
-| qBittorrent  | linuxserver/qbittorrent                    | ${QBITTORRENT_WEBUI}:8080 |
-| HandBrake    | jlesage/handbrake                          | ${HANDBRAKE_WEBUI}:5800 |
-| Pi-hole      | pihole/pihole                              | host mode   |
+| Service | Port |
+|---------|------|
+| Jellyfin | host mode (8096) |
+| Radarr | 7878 |
+| Sonarr | 8989 |
+| Bazarr | 6767 |
+| Jellyseerr | 5055 |
+| Prowlarr | 9696 |
+| qBittorrent | 8080 |
+| HandBrake | 5800 |
+| Pi-hole | host mode (80, 8089) |
+| Backrest | 9898 |
+| Uptime Kuma | 3001 |
 
 ### Immich Stack
 
-| Service              | Image                                       | Port        |
-| -------------------- | ------------------------------------------- | ----------- |
-| Immich Server        | immich-app/immich-server                    | 2283:2283   |
-| Immich ML            | immich-app/immich-machine-learning (CUDA)   | internal    |
-| Redis (Valkey)       | valkey/valkey:9                             | internal    |
-| PostgreSQL           | immich-app/postgres (vectorchord+pgvectors) | internal    |
+| Service | Port |
+|---------|------|
+| Immich Server | 2283 |
+| Immich ML (CUDA) | internal |
+| Redis (Valkey) | internal |
+| PostgreSQL | internal |
 
-## Volumes / Paths
+### Valheim Stack
 
-- `${DATA}` — root data directory (media, downloads)
-- `${CONFIGS}` — persistent config for all services
-- `${DATA}/media` — Jellyfin media library
-- `${DATA}/downloads` — qBittorrent downloads, HandBrake I/O
-- `${UPLOAD_LOCATION}` — Immich photo/video uploads
-- `${DB_DATA_LOCATION}` — Immich PostgreSQL data
+| Service | Port |
+|---------|------|
+| Valheim | 2456-2457/udp |
+
+## Paths
+
+- `${DATA}` = `/data` — root data directory
+- `${CONFIGS}` = `/data/backups/configs` — persistent config for all services
+- `/data/media/movies` — Radarr root folder
+- `/data/media/shows` — Sonarr root folder
+- `/data/media/gallery` — Immich uploads
+- `/data/media/recorded` — manually recorded content
+- `/data/downloads` — qBittorrent downloads, HandBrake I/O
+- `/mnt/backup-5tb` — primary backup drive
+- `/mnt/backup-1tb` — secondary backup drive (not always connected)
 
 ## Rules
 
@@ -56,6 +69,8 @@
 ## Notes
 
 - Jellyfin and Pi-hole use `network_mode: host`
-- Radarr/Sonarr have custom scripts mounted: `extract-subs.sh`, `install-ffmpeg.sh`
+- Radarr/Sonarr have custom scripts mounted: `extract-subs.sh` (ASS/SSA→SRT), `install-ffmpeg.sh`
 - Immich ML uses the CUDA variant for GPU-accelerated machine learning
-- Oracle proxy handles external access; internal services communicate over Tailscale
+- Pi-hole uses Cloudflare (1.1.1.1) and Google (8.8.8.8) as upstream DNS
+- Backrest backs up configs + Immich uploads (3 weekly, 3 monthly) and media (2 monthly) to 5TB drive
+- Both Radarr and Sonarr use qBittorrent as download client
