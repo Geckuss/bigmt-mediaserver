@@ -161,6 +161,40 @@ graph TB
 | ----------- | --------------------- | ------------- |
 | **Valheim** | Dedicated game server | 2456-2457/udp |
 
+## Service Dependency Map
+
+What breaks when a component goes down:
+
+| Component down | Impact |
+|----------------|--------|
+| **Caddy (oci)** | All remote/public access lost. Local network access (by IP/port) still works. |
+| **Tailscale** | Caddy can't reach bigmt — same as Caddy down for remote access. SSH only via local network. |
+| **Pi-hole** | DNS resolution fails for all LAN clients. Services themselves keep running but clients can't resolve hostnames. Switch clients to `1.1.1.1` as workaround. |
+| **Docker engine** | All containerized services down. Cockpit (native) still accessible on `:9090`. |
+| **Portainer** | No stack management UI. Running containers are unaffected. Use `docker` CLI as fallback. |
+| **Prowlarr** | Radarr/Sonarr can't search indexers for new content. Existing downloads and libraries unaffected. |
+| **Radarr** | No new movie grabs. Jellyfin movie library still works (read-only). |
+| **Sonarr** | No new episode grabs. Jellyfin show library still works (read-only). |
+| **Bazarr** | No automatic subtitle downloads. Existing subtitles unaffected. |
+| **qBittorrent** | All active downloads stop. Radarr/Sonarr can't send new downloads. Completed media unaffected. |
+| **Jellyfin** | No media playback. All *arr services and downloads continue working independently. |
+| **Jellyseerr** | No media request UI. Radarr/Sonarr still process existing items. |
+| **Backrest** | No backups run (manual or auto-backup). Data integrity at risk until restored. |
+| **Immich** | Photo/video library inaccessible. ML processing stops. PostgreSQL data preserved on disk. |
+| **Immich PostgreSQL** | Immich server fully non-functional (all data in DB). Requires DB restore from backup. |
+| **Uptime Kuma** | No monitoring or Discord alerts. All services continue running unmonitored. |
+| **GTX 1070 / NVIDIA driver** | Jellyfin falls back to software transcoding (very slow). Immich ML falls back to CPU. |
+| **Data drive (`/data`)** | **Total loss** — all media, configs, containers gone. Requires full disaster recovery from backup drive. |
+| **Backup drive** | No backups possible. Production unaffected. Replace drive ASAP. |
+
+### Critical path
+
+```
+Internet → Caddy (oci) → Tailscale → bigmt (Docker) → individual services
+```
+
+Single points of failure: Caddy, Tailscale, the data drive, Docker engine. All remote access flows through the OCI→Tailscale→bigmt chain.
+
 ## Reverse Proxy
 
 Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains under `*.bigmt.dynv6.net` are proxied through Tailscale to bigmt:
