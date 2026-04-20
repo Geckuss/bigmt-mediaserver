@@ -4,8 +4,112 @@ Self-hosted mediaserver running on **bigmt**, managed with Docker and Portainer.
 
 ## Architecture
 
+### Network / Reverse Proxy Flow
+
+```mermaid
+graph LR
+    Internet["Internet<br/>*.bigmt.dynv6.net"]
+    OCI["Oracle Cloud (oci)<br/>Caddy + TLS"]
+    TS["Tailscale VPN"]
+    bigmt["bigmt<br/>(mediaserver)"]
+
+    Internet -->|HTTPS :443| OCI
+    OCI -->|Tailscale| TS
+    TS -->|bigmt.tahr-fort.ts.net| bigmt
+
+    subgraph OCI Instance
+        OCI
+    end
+
+    subgraph bigmt Services
+        bigmt --> Jellyfin[":8096 Jellyfin"]
+        bigmt --> Radarr[":7878 Radarr"]
+        bigmt --> Sonarr[":8989 Sonarr"]
+        bigmt --> Immich[":2283 Immich"]
+        bigmt --> Pihole[":8089 Pi-hole"]
+        bigmt --> More["...and more"]
+    end
 ```
-[Internet] --> [Oracle Cloud / Caddy (reverse proxy)] --Tailscale--> [bigmt (mediaserver)]
+
+### Service Architecture on bigmt
+
+```mermaid
+graph TB
+    subgraph Portainer["Docker / Portainer"]
+        subgraph main["Main Stack"]
+            Jellyfin["Jellyfin<br/>host:8096<br/>🎬 GPU transcode"]
+            Radarr["Radarr :7878"]
+            Sonarr["Sonarr :8989"]
+            Bazarr["Bazarr :6767"]
+            Prowlarr["Prowlarr :9696"]
+            Jellyseerr["Jellyseerr :5055"]
+            qBit["qBittorrent :8080"]
+            HandBrake["HandBrake :5800"]
+            Pihole["Pi-hole<br/>host:80,8089"]
+            Backrest["Backrest :9898"]
+            Kuma["Uptime Kuma :3001"]
+        end
+        subgraph immich["Immich Stack"]
+            ImmichSrv["Immich Server :2283"]
+            ImmichML["Immich ML (CUDA)"]
+            Redis["Valkey (Redis)"]
+            Postgres["PostgreSQL"]
+        end
+        subgraph valheim["Valheim Stack"]
+            VH["Valheim :2456-2457/udp"]
+        end
+    end
+
+    subgraph Storage
+        SSD["128GB SSD<br/>/  (boot)"]
+        HDD["12TB WD HDD<br/>/data"]
+        Backup["5TB Seagate USB<br/>/mnt/backup-5tb"]
+    end
+
+    GPU["GTX 1070"]
+
+    GPU -.->|transcode| Jellyfin
+    GPU -.->|ML inference| ImmichML
+
+    HDD -->|/data/media| Jellyfin
+    HDD -->|/data/media| Radarr
+    HDD -->|/data/media| Sonarr
+    HDD -->|/data/downloads| qBit
+    HDD -->|/data/backups/configs| Backrest
+    HDD -->|/data/media/gallery| ImmichSrv
+
+    Prowlarr -.->|indexers| Radarr
+    Prowlarr -.->|indexers| Sonarr
+    Radarr -->|downloads| qBit
+    Sonarr -->|downloads| qBit
+    Bazarr -.->|subtitles| Radarr
+    Bazarr -.->|subtitles| Sonarr
+
+    Backrest -->|restic| Backup
+```
+
+### Backup Flow
+
+```mermaid
+graph LR
+    Plug["Drive plugged in"]
+    udev["udev rule<br/>99-backup-drive.rules"]
+    systemd["auto-backup.service"]
+    Script["auto-backup.sh"]
+    Mount["Mount drive"]
+    Cooldown{"Cooldown<br/>check"}
+    API["Backrest API"]
+    Critical["critical plan<br/>configs + Immich<br/>(30d cooldown)"]
+    Media["media plan<br/>3TB media<br/>(90d cooldown)"]
+    Unmount["Unmount +<br/>power off"]
+    Discord["Discord<br/>notification"]
+    Skip["Skip<br/>(too recent)"]
+
+    Plug --> udev --> systemd --> Script --> Mount --> Cooldown
+    Cooldown -->|elapsed| API
+    Cooldown -->|not elapsed| Skip
+    API --> Critical --> Media --> Unmount --> Discord
+    Skip --> Discord
 ```
 
 - **bigmt** — main server running all services via Docker/Portainer
