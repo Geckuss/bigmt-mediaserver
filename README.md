@@ -7,7 +7,7 @@ Self-hosted mediaserver running on **bigmt**, managed with Docker and Portainer.
 ### Network / Reverse Proxy Flow
 
 ```mermaid
-graph LR
+graph TB
     Internet["Internet<br/>*.bigmt.dynv6.net"]
     OCI["Oracle Cloud (oci)<br/>Caddy + TLS"]
     TS["Tailscale VPN"]
@@ -34,10 +34,10 @@ graph LR
 ### Service Architecture on bigmt
 
 ```mermaid
-graph TB
+graph LR
     subgraph Portainer["Docker / Portainer"]
         subgraph main["Main Stack"]
-            Jellyfin["Jellyfin<br/>host:8096<br/>🎬 GPU transcode"]
+            Jellyfin["Jellyfin<br/>host:8096"]
             Radarr["Radarr :7878"]
             Sonarr["Sonarr :8989"]
             Bazarr["Bazarr :6767"]
@@ -91,7 +91,7 @@ graph TB
 ### Backup Flow
 
 ```mermaid
-graph LR
+graph TB
     Plug["Drive plugged in"]
     udev["udev rule<br/>99-backup-drive.rules"]
     systemd["auto-backup.service"]
