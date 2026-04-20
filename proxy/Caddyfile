@@ -1,0 +1,77 @@
+{
+    email your-email@example.com
+}
+
+(security_headers) {
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+}
+
+bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:8096
+}
+jellyfin.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:8096
+}
+sonarr.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:8989
+}
+radarr.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:7878
+}
+qbittorrent.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:8080
+}
+bazarr.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:6767
+}
+jellyseerr.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:5055
+}
+prowlarr.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:9696
+}
+portainer.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:9000
+}
+cockpit.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:9090
+}
+immich.bigmt.dynv6.net  {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:2283
+}
+pihole.bigmt.dynv6.net {
+    import security_headers
+    redir / /admin permanent
+    reverse_proxy http://bigmt.tahr-fort.ts.net:80
+}
+backrest.bigmt.dynv6.net {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:9898
+}
+bigmt.v6.rocks {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:8096
+}
+uptime.bigmt.dynv6.net {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:3001
+}
+:80 {
+    respond "Not Found" 404
+}
