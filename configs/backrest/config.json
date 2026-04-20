@@ -1,0 +1,95 @@
+{
+  "modno": 6,
+  "version": 4,
+  "instance": "bigmt-backrest",
+  "repos": [
+    {
+      "id": "primary-5tb",
+      "uri": "/repos/primary",
+      "guid": "83f51921b63ba76de8fb8cec29927f6dff90f1929bbdbd256c7ba33994e529d2",
+      "password": "<RESTIC_REPO_PASSWORD>",
+      "prunePolicy": {
+        "schedule": {
+          "disabled": true,
+          "clock": "CLOCK_LAST_RUN_TIME"
+        },
+        "maxUnusedPercent": 10
+      },
+      "checkPolicy": {
+        "schedule": {
+          "disabled": true,
+          "clock": "CLOCK_LAST_RUN_TIME"
+        }
+      },
+      "hooks": [
+        {
+          "conditions": [
+            "CONDITION_ANY_ERROR",
+            "CONDITION_SNAPSHOT_SUCCESS",
+            "CONDITION_CHECK_SUCCESS",
+            "CONDITION_FORGET_SUCCESS"
+          ],
+          "actionDiscord": {
+            "webhookUrl": "<DISCORD_WEBHOOK_URL>",
+            "template": "{{ .Summary }}"
+          }
+        }
+      ],
+      "commandPrefix": {}
+    }
+  ],
+  "plans": [
+    {
+      "id": "critical",
+      "repo": "primary-5tb",
+      "paths": [
+        "/userdata/configs",
+        "/userdata/immich-uploads"
+      ],
+      "schedule": {
+        "disabled": true,
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "weekly": 3,
+          "monthly": 3
+        }
+      },
+      "hooks": [
+        {
+          "conditions": [
+            "CONDITION_FORGET_SUCCESS",
+            "CONDITION_CHECK_SUCCESS",
+            "CONDITION_PRUNE_SUCCESS",
+            "CONDITION_SNAPSHOT_SUCCESS",
+            "CONDITION_ANY_ERROR"
+          ],
+          "actionDiscord": {
+            "webhookUrl": "<DISCORD_WEBHOOK_URL>",
+            "template": "{{ .Summary }}"
+          }
+        }
+      ]
+    },
+    {
+      "id": "media",
+      "repo": "primary-5tb",
+      "paths": [
+        "/userdata/media"
+      ],
+      "excludes": [
+        "/userdata/media/gallery"
+      ],
+      "schedule": {
+        "disabled": true,
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "monthly": 2
+        }
+      }
+    }
+  ]
+}

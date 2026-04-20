@@ -236,6 +236,9 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 
 ```
 .
+├── configs/
+│   └── backrest/
+│       └── config.json            # Sanitized Backrest config (for bootstrap restore)
 ├── proxy/
 │   └── Caddyfile              # Caddy reverse proxy config (runs on Oracle Cloud)
 ├── scripts/
@@ -247,6 +250,7 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 │   └── valheim.yml            # Valheim game server
 ├── .env.example               # Environment variable template
 ├── AGENTS.md                  # Agent instructions for this project
+├── DISASTER-RECOVERY.md       # Full rebuild runbook for bigmt and OCI
 └── README.md
 ```
 
