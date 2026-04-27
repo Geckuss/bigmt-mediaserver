@@ -15,7 +15,7 @@
 - **bigmt**: Main mediaserver running all services via Docker/Portainer
 - **oci (Oracle Cloud)**: Reverse proxy running Caddy, connected to bigmt over Tailscale
 - **GPU**: NVIDIA GTX 1070 (used by Jellyfin for transcoding, Immich for ML)
-- **DNS**: `*.bigmt.dynv6.net` → Oracle Cloud public IP → Caddy → bigmt via `bigmt.tahr-fort.ts.net`
+- **DNS**: `*.bigmt.dynv6.net` → Oracle Cloud public IP → Caddy → bigmt via `<TAILSCALE_HOSTNAME>`
 
 ## Docker Stacks (Portainer)
 

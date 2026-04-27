@@ -15,7 +15,7 @@ graph TB
 
     Internet -->|HTTPS :443| OCI
     OCI -->|Tailscale| TS
-    TS -->|bigmt.tahr-fort.ts.net| bigmt
+    TS -->|<TAILSCALE_HOSTNAME>| bigmt
 
     subgraph OCI Instance
         OCI
@@ -119,7 +119,7 @@ graph TB
 
 - **bigmt** — main server running all services via Docker/Portainer
 - **Oracle Cloud (oci)** — reverse proxy running Caddy, connected to bigmt over Tailscale
-- **DNS** — `*.bigmt.dynv6.net` points to Oracle Cloud public IP; Caddy handles TLS and proxies to bigmt via Tailscale hostname `bigmt.tahr-fort.ts.net`
+- **DNS** — `*.bigmt.dynv6.net` points to Oracle Cloud public IP; Caddy handles TLS and proxies to bigmt via Tailscale hostname `<TAILSCALE_HOSTNAME>`
 
 ## Hardware
 

@@ -302,7 +302,7 @@ sudo ufw enable
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 # Authenticate and verify bigmt is reachable:
-ping bigmt.tahr-fort.ts.net
+ping <TAILSCALE_HOSTNAME>
 ```
 
 ### Step 4: Install Caddy
