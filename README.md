@@ -41,6 +41,7 @@ graph LR
             Radarr["Radarr :7878"]
             Sonarr["Sonarr :8989"]
             Bazarr["Bazarr :6767"]
+            Lidarr["Lidarr :8686"]
             Prowlarr["Prowlarr :9696"]
             Jellyseerr["Jellyseerr :5055"]
             qBit["qBittorrent :8080"]
@@ -48,6 +49,7 @@ graph LR
             Pihole["Pi-hole<br/>host:80,8089"]
             Backrest["Backrest :9898"]
             Kuma["Uptime Kuma :3001"]
+            Seafile["Seafile :8082"]
         end
         subgraph immich["Immich Stack"]
             ImmichSrv["Immich Server :2283"]
@@ -74,14 +76,17 @@ graph LR
     HDD -->|/data/media| Jellyfin
     HDD -->|/data/media| Radarr
     HDD -->|/data/media| Sonarr
+    HDD -->|/data/media/music| Lidarr
     HDD -->|/data/downloads| qBit
     HDD -->|/data/backups/configs| Backrest
     HDD -->|/data/media/gallery| ImmichSrv
 
     Prowlarr -.->|indexers| Radarr
     Prowlarr -.->|indexers| Sonarr
+    Prowlarr -.->|indexers| Lidarr
     Radarr -->|downloads| qBit
     Sonarr -->|downloads| qBit
+    Lidarr -->|downloads| qBit
     Bazarr -.->|subtitles| Radarr
     Bazarr -.->|subtitles| Sonarr
 
@@ -138,6 +143,7 @@ graph TB
 | **Radarr**      | Movie management           | 7878                 |
 | **Sonarr**      | TV show management         | 8989                 |
 | **Bazarr**      | Subtitle management        | 6767                 |
+| **Lidarr**      | Music management           | 8686                 |
 | **Jellyseerr**  | Media request management   | 5055                 |
 | **Prowlarr**    | Indexer management         | 9696                 |
 | **qBittorrent** | Torrent client             | 8080                 |
@@ -145,6 +151,8 @@ graph TB
 | **Pi-hole**     | DNS ad blocker             | host mode (80, 8089) |
 | **Backrest**    | Backup management (restic) | 9898                 |
 | **Uptime Kuma** | Status monitoring          | 3001                 |
+| **Seafile**     | File sync & share          | 8082                 |
+| **Homepage**    | Dashboard                  | 3000                 |
 
 ### Immich Stack (`stacks/immich.yml`)
 
@@ -175,6 +183,7 @@ What breaks when a component goes down:
 | **Prowlarr** | Radarr/Sonarr can't search indexers for new content. Existing downloads and libraries unaffected. |
 | **Radarr** | No new movie grabs. Jellyfin movie library still works (read-only). |
 | **Sonarr** | No new episode grabs. Jellyfin show library still works (read-only). |
+| **Lidarr** | No new music grabs. Jellyfin music library still works (read-only). |
 | **Bazarr** | No automatic subtitle downloads. Existing subtitles unaffected. |
 | **qBittorrent** | All active downloads stop. Radarr/Sonarr can't send new downloads. Completed media unaffected. |
 | **Jellyfin** | No media playback. All *arr services and downloads continue working independently. |
@@ -182,6 +191,8 @@ What breaks when a component goes down:
 | **Backrest** | No backups run (manual or auto-backup). Data integrity at risk until restored. |
 | **Immich** | Photo/video library inaccessible. ML processing stops. PostgreSQL data preserved on disk. |
 | **Immich PostgreSQL** | Immich server fully non-functional (all data in DB). Requires DB restore from backup. |
+| **Seafile** | File sync inaccessible. Seafile MariaDB data preserved on disk. |
+| **Seafile MariaDB** | Seafile fully non-functional. Requires DB restore from backup. |
 | **Uptime Kuma** | No monitoring or Discord alerts. All services continue running unmonitored. |
 | **GTX 1070 / NVIDIA driver** | Jellyfin falls back to software transcoding (very slow). Immich ML falls back to CPU. |
 | **Data drive (`/data`)** | **Total loss** — all media, configs, containers gone. Requires full disaster recovery from backup drive. |
@@ -205,6 +216,7 @@ Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains unde
 | `sonarr.*`                       | Sonarr (:8989)      |
 | `radarr.*`                       | Radarr (:7878)      |
 | `bazarr.*`                       | Bazarr (:6767)      |
+| `lidarr.*`                       | Lidarr (:8686)      |
 | `jellyseerr.*`                   | Jellyseerr (:5055)  |
 | `prowlarr.*`                     | Prowlarr (:9696)    |
 | `qbittorrent.*`                  | qBittorrent (:8080) |
@@ -214,6 +226,7 @@ Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains unde
 | `pihole.*`                       | Pi-hole (:80)       |
 | `backrest.*`                     | Backrest (:9898)    |
 | `uptime.*`                       | Uptime Kuma (:3001) |
+| `seafile.*`                      | Seafile (:8082)     |
 | `bigmt.v6.rocks`                 | Jellyfin (:8096)    |
 
 Caddy auto-provisions TLS certificates via Let's Encrypt.
@@ -289,6 +302,7 @@ Uptime Kuma monitors all services via their public reverse-proxied URLs. All mon
 /data/media/
 ├── movies/      # Radarr-managed
 ├── shows/       # Sonarr-managed
+├── music/       # Lidarr-managed
 ├── gallery/     # Immich uploads (photos/videos)
 ├── recorded/    # Manually recorded content (Finnish TV, etc.)
 └── trash/       # Recycle bin
@@ -505,3 +519,4 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 - Immich ML uses the CUDA variant for GPU-accelerated inference
 - All service configs persist under `${CONFIGS}/` (`/data/backups/configs`)
 - Media and downloads live under `${DATA}/` (`/data`)
+- Seafile uses MariaDB + Memcached; `seahub_settings.py` requires `CSRF_TRUSTED_ORIGINS` and `https://` URLs when behind a reverse proxy

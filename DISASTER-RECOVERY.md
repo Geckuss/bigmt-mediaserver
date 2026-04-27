@@ -212,6 +212,7 @@ cp .env.example .env
 ```
 
 **Deploy via Portainer UI:**
+
 1. Go to Stacks → Add Stack
 2. Paste contents of each compose file
 3. Add environment variables from .env
@@ -258,6 +259,7 @@ sudo systemctl daemon-reload
 - [ ] Jellyfin: media libraries visible at `:8096`
 - [ ] Radarr: config intact, download client connected at `:7878`
 - [ ] Sonarr: config intact, download client connected at `:8989`
+- [ ] Lidarr: config intact, download client connected at `:8686`
 - [ ] Bazarr: subtitle providers configured at `:6767`
 - [ ] Prowlarr: indexers configured at `:9696`
 - [ ] Jellyseerr: request management at `:5055`
@@ -266,6 +268,7 @@ sudo systemctl daemon-reload
 - [ ] Backrest: backup plans visible at `:9898`
 - [ ] qBittorrent: web UI accessible at `:8080`
 - [ ] HandBrake: web UI accessible at `:5800`
+- [ ] Seafile: web UI accessible at `:8082`
 - [ ] Uptime Kuma: monitors loaded at `:3001`
 - [ ] Tailscale: `tailscale status` shows connected peers
 - [ ] Auto-backup: `sudo systemctl status auto-backup.service` shows loaded
@@ -337,22 +340,22 @@ Ensure `*.bigmt.dynv6.net` points to the new Oracle Cloud instance's public IP.
 
 ## Key information reference
 
-| Item | Value |
-|------|-------|
-| bigmt OS | Ubuntu 24.04 LTS |
-| bigmt kernel | 6.17.0-20-generic (HWE) |
-| NVIDIA driver | 570.211.01 |
-| NVIDIA Container Toolkit | 1.19.0 |
-| Docker | 29.2.0 |
-| Docker Compose | v5.0.2 |
-| Docker data root | `/data/docker` |
-| Tailscale | 1.96.4 |
-| Portainer | portainer-ce:lts |
-| Cockpit | 352 |
-| User | mobius (UID 1000, GID 1000, sudo NOPASSWD) |
-| Secondary user | steam (UID 1001, for Valheim/SteamCMD) |
-| Data drive | WD 12TB, LABEL=data, mounted at `/data` |
-| Backup drive | Seagate 5TB, LABEL=backup-5tb, `/mnt/backup-5tb` |
-| oci OS | Ubuntu 24.04 LTS |
-| oci Caddy | v2.11.2 |
-| oci Tailscale | 1.96.4 |
+| Item                     | Value                                            |
+| ------------------------ | ------------------------------------------------ |
+| bigmt OS                 | Ubuntu 24.04 LTS                                 |
+| bigmt kernel             | 6.17.0-20-generic (HWE)                          |
+| NVIDIA driver            | 570.211.01                                       |
+| NVIDIA Container Toolkit | 1.19.0                                           |
+| Docker                   | 29.2.0                                           |
+| Docker Compose           | v5.0.2                                           |
+| Docker data root         | `/data/docker`                                   |
+| Tailscale                | 1.96.4                                           |
+| Portainer                | portainer-ce:lts                                 |
+| Cockpit                  | 352                                              |
+| User                     | mobius (UID 1000, GID 1000, sudo NOPASSWD)       |
+| Secondary user           | steam (UID 1001, for Valheim/SteamCMD)           |
+| Data drive               | WD 12TB, LABEL=data, mounted at `/data`          |
+| Backup drive             | Seagate 5TB, LABEL=backup-5tb, `/mnt/backup-5tb` |
+| oci OS                   | Ubuntu 24.04 LTS                                 |
+| oci Caddy                | v2.11.2                                          |
+| oci Tailscale            | 1.96.4                                           |

@@ -27,13 +27,18 @@
 | Radarr | 7878 |
 | Sonarr | 8989 |
 | Bazarr | 6767 |
+| Lidarr | 8686 |
 | Jellyseerr | 5055 |
 | Prowlarr | 9696 |
 | qBittorrent | 8080 |
 | HandBrake | 5800 |
 | Pi-hole | host mode (80, 8089) |
 | Backrest | 9898 |
+| Seafile | 8082 |
+| Seafile MariaDB | internal |
+| Seafile Memcached | internal |
 | Uptime Kuma | 3001 |
+| Homepage | 3000 |
 
 ### Immich Stack
 
@@ -56,7 +61,10 @@
 - `${CONFIGS}` = `/data/backups/configs` — persistent config for all services
 - `/data/media/movies` — Radarr root folder
 - `/data/media/shows` — Sonarr root folder
+- `/data/media/music` — Lidarr root folder
 - `/data/media/gallery` — Immich uploads
+- `${CONFIGS}/seafile-data` — Seafile shared data
+- `${CONFIGS}/seafile-mysql` — Seafile MariaDB data
 - `/data/media/recorded` — manually recorded content
 - `/data/downloads` — qBittorrent downloads, HandBrake I/O
 - `/mnt/backup-5tb` — primary backup drive
@@ -76,3 +84,5 @@
 - Auto-backup: udev rule triggers backup on drive plug, with cooldowns (critical: 30d, media: 90d)
 - Backrest API credentials stored in `/etc/backrest-api-credentials` (root-only)
 - Both Radarr and Sonarr use qBittorrent as download client
+- Lidarr uses qBittorrent as download client
+- Seafile uses MariaDB + Memcached; config requires `CSRF_TRUSTED_ORIGINS` and `https://` URLs in `seahub_settings.py` for reverse proxy

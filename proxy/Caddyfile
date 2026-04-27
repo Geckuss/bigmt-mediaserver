@@ -13,7 +13,7 @@
 
 bigmt.dynv6.net  {
     import security_headers
-    reverse_proxy http://bigmt.tahr-fort.ts.net:8096
+    reverse_proxy http://bigmt.tahr-fort.ts.net:3000
 }
 jellyfin.bigmt.dynv6.net  {
     import security_headers
@@ -60,17 +60,29 @@ pihole.bigmt.dynv6.net {
     redir / /admin permanent
     reverse_proxy http://bigmt.tahr-fort.ts.net:80
 }
+lidarr.bigmt.dynv6.net {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:8686
+}
 backrest.bigmt.dynv6.net {
     import security_headers
     reverse_proxy http://bigmt.tahr-fort.ts.net:9898
 }
 bigmt.v6.rocks {
     import security_headers
-    reverse_proxy http://bigmt.tahr-fort.ts.net:8096
+    reverse_proxy http://bigmt.tahr-fort.ts.net:3000
+}
+homepage.bigmt.dynv6.net {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:3000
 }
 uptime.bigmt.dynv6.net {
     import security_headers
     reverse_proxy http://bigmt.tahr-fort.ts.net:3001
+}
+seafile.bigmt.dynv6.net {
+    import security_headers
+    reverse_proxy http://bigmt.tahr-fort.ts.net:8082
 }
 :80 {
     respond "Not Found" 404
