@@ -1,0 +1,19 @@
+{
+    "host": "0.0.0.0",
+    "port": "8000",
+    "password": "vocard-ipc-secret",
+    "client_id": "YOUR_CLIENT_ID",
+    "client_secret_id": "YOUR_CLIENT_SECRET",
+    "secret_key": "vocard-dashboard-session-key",
+    "redirect_url": "https://seraphine.bigmt.dynv6.net/callback",
+    "logging": {
+        "file": {
+            "path": "./logs",
+            "enable": true
+        },
+        "level": {
+            "dashboard": "INFO"
+        },
+        "max_history": 30
+    }
+}

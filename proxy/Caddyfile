@@ -87,6 +87,10 @@ seafile.bigmt.dynv6.net {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8082
 }
+seraphine.bigmt.dynv6.net {
+    import security_headers
+    reverse_proxy http://<TAILSCALE_HOSTNAME>:8050
+}
 :80 {
     respond "Not Found" 404
 }

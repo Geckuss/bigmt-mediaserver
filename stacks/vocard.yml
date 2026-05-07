@@ -1,0 +1,93 @@
+name: vocard
+networks:
+  vocard:
+    name: vocard
+services:
+  lavalink:
+    container_name: lavalink
+    environment:
+      - SERVER_PORT=2333
+      - LAVALINK_SERVER_PASSWORD=youshallnotpass
+      - _JAVA_OPTIONS=-Xmx512M -XX:+UseG1GC -XX:MaxGCPauseMillis=20
+    expose:
+      - 2333
+    image: ghcr.io/lavalink-devs/lavalink:latest
+    networks:
+      - vocard
+    restart: unless-stopped
+    volumes:
+      - ${CONFIGS}/vocard/lavalink/application.yml:/opt/Lavalink/application.yml
+      - ${CONFIGS}/vocard/lavalink/plugins:/opt/Lavalink/plugins
+      - ${CONFIGS}/vocard/lavalink/logs:/opt/Lavalink/logs
+
+  yt-cipher:
+    container_name: yt-cipher
+    image: ghcr.io/kikkia/yt-cipher:master
+    expose:
+      - 8001
+    networks:
+      - vocard
+    restart: unless-stopped
+
+  spotify-tokener:
+    container_name: spotify-tokener
+    environment:
+      - SPOTIFY_TOKENER_ADDR=0.0.0.0:49152
+    expose:
+      - 49152
+    image: ghcr.io/topi314/spotify-tokener:master
+    networks:
+      - vocard
+    restart: unless-stopped
+
+  vocard-dashboard:
+    container_name: vocard-dashboard
+    image: ghcr.io/chocomeow/vocard-dashboard:latest
+    restart: unless-stopped
+    volumes:
+      - ${CONFIGS}/vocard/dashboard/settings.json:/app/settings.json
+    ports:
+      - 8050:8000
+    networks:
+      - vocard
+
+  vocard:
+    container_name: vocard
+    depends_on:
+      vocard-db:
+        condition: service_healthy
+      lavalink:
+        condition: service_started
+    image: vocard:beta
+    pull_policy: never
+    networks:
+      - vocard
+    restart: unless-stopped
+    volumes:
+      - ${CONFIGS}/vocard/settings.json:/app/settings.json
+
+  vocard-db:
+    command:
+      - mongod
+      - --oplogSize=1024
+      - --wiredTigerCacheSizeGB=1
+      - --auth
+      - --noscripting
+    container_name: vocard-db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+    expose:
+      - 27017
+    healthcheck:
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      timeout: 5s
+    image: mongo:8
+    networks:
+      - vocard
+    restart: unless-stopped
+    volumes:
+      - ${CONFIGS}/vocard/mongodb_data:/data/db
