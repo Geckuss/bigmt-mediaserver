@@ -67,20 +67,6 @@ services:
       - ${BAZARR_PORT:-6767}:6767
     restart: unless-stopped
 
-  lidarr:
-    image: lscr.io/linuxserver/lidarr:latest
-    container_name: lidarr
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-Europe/Helsinki}
-    volumes:
-      - ${DATA}:/data
-      - ${CONFIGS}/lidarr:/config
-    ports:
-      - ${LIDARR_PORT:-8686}:8686
-    restart: unless-stopped
-
   jellyseerr:
     image: ghcr.io/fallenbagel/jellyseerr:latest
     init: true
@@ -203,6 +189,10 @@ services:
     image: memcached:1.6
     container_name: seafile-memcached
     entrypoint: memcached -m 256
+    networks:
+      default:
+        aliases:
+          - memcached
     restart: unless-stopped
 
   seafile:
@@ -235,5 +225,5 @@ services:
       - /data:/data:ro
     environment:
       - TZ=${TZ:-Europe/Helsinki}
-      - HOMEPAGE_ALLOWED_HOSTS=bigmt.dynv6.net,bigmt.v6.rocks,homepage.bigmt.dynv6.net
+      - HOMEPAGE_ALLOWED_HOSTS=bigmt.dynv6.net,bigmt.v6.rocks,homepage.bigmt.dynv6.net,bigmt.chickenkiller.com,homepage.bigmt.chickenkiller.com
     restart: unless-stopped
