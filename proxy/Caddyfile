@@ -14,75 +14,71 @@
     }
 }
 
-bigmt.dynv6.net, bigmt.chickenkiller.com {
+bigmt.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:3000
 }
-jellyfin.bigmt.dynv6.net, jellyfin.bigmt.chickenkiller.com {
+jellyfin.example.com {
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8096
 }
-sonarr.bigmt.dynv6.net, sonarr.bigmt.chickenkiller.com {
+sonarr.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8989
 }
-radarr.bigmt.dynv6.net, radarr.bigmt.chickenkiller.com {
+radarr.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:7878
 }
-qbittorrent.bigmt.dynv6.net, qbittorrent.bigmt.chickenkiller.com {
+qbittorrent.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8080
 }
-bazarr.bigmt.dynv6.net, bazarr.bigmt.chickenkiller.com {
+bazarr.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:6767
 }
-jellyseerr.bigmt.dynv6.net, jellyseerr.bigmt.chickenkiller.com {
+jellyseerr.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:5055
 }
-prowlarr.bigmt.dynv6.net, prowlarr.bigmt.chickenkiller.com {
+prowlarr.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9696
 }
-portainer.bigmt.dynv6.net, portainer.bigmt.chickenkiller.com {
+portainer.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9000
 }
-cockpit.bigmt.dynv6.net, cockpit.bigmt.chickenkiller.com {
+cockpit.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9090
 }
-immich.bigmt.dynv6.net, immich.bigmt.chickenkiller.com {
+immich.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:2283
 }
-pihole.bigmt.dynv6.net, pihole.bigmt.chickenkiller.com {
+pihole.example.com {
     import security_headers
     redir / /admin permanent
     reverse_proxy http://<TAILSCALE_HOSTNAME>:80
 }
-backrest.bigmt.dynv6.net, backrest.bigmt.chickenkiller.com {
+backrest.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9898
 }
-bigmt.v6.rocks {
+homepage.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:3000
 }
-homepage.bigmt.dynv6.net, homepage.bigmt.chickenkiller.com {
-    import security_headers
-    reverse_proxy http://<TAILSCALE_HOSTNAME>:3000
-}
-uptime.bigmt.dynv6.net, uptime.bigmt.chickenkiller.com {
+uptime.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:3001
 }
-seafile.bigmt.dynv6.net, seafile.bigmt.chickenkiller.com {
+seafile.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8082
 }
-seraphine.bigmt.dynv6.net, seraphine.bigmt.chickenkiller.com {
+seraphine.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8050
 }

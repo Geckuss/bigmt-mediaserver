@@ -15,8 +15,7 @@
 - **bigmt**: Main mediaserver running all services via Docker/Portainer
 - **oci (Oracle Cloud)**: Reverse proxy running Caddy, connected to bigmt over Tailscale
 - **GPU**: NVIDIA GTX 1070 (used by Jellyfin for transcoding, Immich for ML)
-- **DNS (primary)**: `*.bigmt.dynv6.net` → Oracle Cloud public IP → Caddy → bigmt via Tailscale (dynv6 — unreliable, 7-day negative cache TTL)
-- **DNS (fallback)**: `*.bigmt.chickenkiller.com` → same OCI IP (FreeDNS/afraid.org — added as redundancy)
+- **DNS**: `*.example.com` → Oracle Cloud public IP → Caddy → bigmt via Tailscale
 
 ## Docker Stacks (Portainer)
 
@@ -102,7 +101,5 @@
 - Lavalink plugins: youtube-plugin 1.18.0, lavasrc 4.8.1, lavasearch 1.0.0, lavalyrics 1.0.0
 - Lavalink uses yt-cipher for external YouTube cipher resolution (`remoteCipher` in application.yml)
 - Lavalink JVM tuning: `-Xmx512M -XX:+UseG1GC -XX:MaxGCPauseMillis=20`
-- Vocard Dashboard accessible at `seraphine.bigmt.dynv6.net` / `seraphine.bigmt.chickenkiller.com`
+- Vocard Dashboard accessible at `seraphine.example.com`
 - Vocard translation keys in settings.json use flattened dot notation (e.g. `@@t_player.buttons.back@@`)
-- Homepage `HOMEPAGE_ALLOWED_HOSTS` must include all domains that serve the dashboard (dynv6 + chickenkiller)
-- dynv6 has a 7-day SOA negative cache TTL — any brief NXDOMAIN from their nameservers causes prolonged outages at public resolvers

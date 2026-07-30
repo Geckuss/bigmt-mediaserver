@@ -328,11 +328,11 @@ ssh oci "sudo mv /tmp/Caddyfile /etc/caddy/Caddyfile && sudo systemctl restart c
 
 ### Step 6: Update DNS
 
-Ensure `*.bigmt.dynv6.net` points to the new Oracle Cloud instance's public IP.
+Ensure `*.example.com` points to the new Oracle Cloud instance's public IP.
 
 ### Step 7: Verify
 
-- [ ] `curl -I https://bigmt.dynv6.net` returns 200
+- [ ] `curl -I https://bigmt.example.com` returns 200
 - [ ] All subdomains resolve and proxy correctly
 - [ ] TLS certificates are auto-provisioned
 

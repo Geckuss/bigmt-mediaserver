@@ -5,7 +5,7 @@
     "client_id": "YOUR_CLIENT_ID",
     "client_secret_id": "YOUR_CLIENT_SECRET",
     "secret_key": "vocard-dashboard-session-key",
-    "redirect_url": "https://seraphine.bigmt.dynv6.net/callback",
+    "redirect_url": "https://seraphine.example.com/callback",
     "logging": {
         "file": {
             "path": "./logs",

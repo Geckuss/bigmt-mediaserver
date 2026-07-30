@@ -207,7 +207,7 @@ services:
       - DB_ROOT_PASSWD=${SEAFILE_MYSQL_ROOT_PASSWORD}
       - SEAFILE_ADMIN_EMAIL=${SEAFILE_ADMIN_EMAIL}
       - SEAFILE_ADMIN_PASSWORD=${SEAFILE_ADMIN_PASSWORD}
-      - SEAFILE_SERVER_HOSTNAME=${SEAFILE_HOSTNAME:-seafile.bigmt.dynv6.net}
+      - SEAFILE_SERVER_HOSTNAME=${SEAFILE_HOSTNAME:-seafile.example.com}
       - TZ=${TZ:-Europe/Helsinki}
     depends_on:
       - seafile-mysql
@@ -225,5 +225,5 @@ services:
       - /data:/data:ro
     environment:
       - TZ=${TZ:-Europe/Helsinki}
-      - HOMEPAGE_ALLOWED_HOSTS=bigmt.dynv6.net,bigmt.v6.rocks,homepage.bigmt.dynv6.net,bigmt.chickenkiller.com,homepage.bigmt.chickenkiller.com
+      - HOMEPAGE_ALLOWED_HOSTS=bigmt.example.com,homepage.example.com
     restart: unless-stopped

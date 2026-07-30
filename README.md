@@ -8,7 +8,7 @@ Self-hosted mediaserver running on **bigmt**, managed with Docker and Portainer.
 
 ```mermaid
 graph TB
-    Internet["Internet<br/>*.bigmt.dynv6.net"]
+    Internet["Internet<br/>*.example.com"]
     OCI["Oracle Cloud (oci)<br/>Caddy + TLS"]
     TS["Tailscale VPN"]
     bigmt["bigmt<br/>(mediaserver)"]
@@ -119,7 +119,7 @@ graph TB
 
 - **bigmt** — main server running all services via Docker/Portainer
 - **Oracle Cloud (oci)** — reverse proxy running Caddy, connected to bigmt over Tailscale
-- **DNS** — `*.bigmt.dynv6.net` points to Oracle Cloud public IP; Caddy handles TLS and proxies to bigmt via Tailscale hostname `<TAILSCALE_HOSTNAME>`
+- **DNS** — `*.example.com` points to Oracle Cloud public IP; Caddy handles TLS and proxies to bigmt via Tailscale hostname `<TAILSCALE_HOSTNAME>`
 
 ## Hardware
 
@@ -208,11 +208,11 @@ Single points of failure: Caddy, Tailscale, the data drive, Docker engine. All r
 
 ## Reverse Proxy
 
-Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains under `*.bigmt.dynv6.net` are proxied through Tailscale to bigmt:
+Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains under `*.example.com` are proxied through Tailscale to bigmt:
 
 | Subdomain                        | Backend             |
 | -------------------------------- | ------------------- |
-| `bigmt.dynv6.net` / `jellyfin.*` | Jellyfin (:8096)    |
+| `bigmt.example.com` / `jellyfin.*` | Jellyfin (:8096)    |
 | `sonarr.*`                       | Sonarr (:8989)      |
 | `radarr.*`                       | Radarr (:7878)      |
 | `bazarr.*`                       | Bazarr (:6767)      |
@@ -227,7 +227,7 @@ Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains unde
 | `backrest.*`                     | Backrest (:9898)    |
 | `uptime.*`                       | Uptime Kuma (:3001) |
 | `seafile.*`                      | Seafile (:8082)     |
-| `bigmt.v6.rocks`                 | Jellyfin (:8096)    |
+| `bigmt.example.com`              | Homepage (:3000)    |
 
 Caddy auto-provisions TLS certificates via Let's Encrypt.
 
@@ -282,17 +282,17 @@ Uptime Kuma monitors all services via their public reverse-proxied URLs. All mon
 
 | Monitor | URL |
 |---------|-----|
-| Jellyfin | `https://jellyfin.bigmt.dynv6.net` |
-| Sonarr | `https://sonarr.bigmt.dynv6.net/api/v3/health` |
-| Radarr | `https://radarr.bigmt.dynv6.net` |
-| Jellyseerr | `https://jellyseerr.bigmt.dynv6.net` |
-| Bazarr | `https://bazarr.bigmt.dynv6.net/api/system/health` |
-| Prowlarr | `https://prowlarr.bigmt.dynv6.net` |
-| qBittorrent | `https://qbittorrent.bigmt.dynv6.net` |
-| Immich | `https://immich.bigmt.dynv6.net` |
-| Pi-hole | `https://pihole.bigmt.dynv6.net/admin` |
-| Portainer | `https://portainer.bigmt.dynv6.net` |
-| Cockpit | `https://cockpit.bigmt.dynv6.net` |
+| Jellyfin | `https://jellyfin.example.com` |
+| Sonarr | `https://sonarr.example.com/api/v3/health` |
+| Radarr | `https://radarr.example.com` |
+| Jellyseerr | `https://jellyseerr.example.com` |
+| Bazarr | `https://bazarr.example.com/api/system/health` |
+| Prowlarr | `https://prowlarr.example.com` |
+| qBittorrent | `https://qbittorrent.example.com` |
+| Immich | `https://immich.example.com` |
+| Pi-hole | `https://pihole.example.com/admin` |
+| Portainer | `https://portainer.example.com` |
+| Cockpit | `https://cockpit.example.com` |
 
 **Notifications**: Discord webhook (channel: "Kuma webhook")
 
@@ -409,7 +409,7 @@ Immich v2.7.5 provides photo/video management with GPU-accelerated machine learn
 
 ## Cockpit
 
-Cockpit v352 is installed natively (not containerized) for server management. Accessible on port 9090, reverse-proxied via `cockpit.bigmt.dynv6.net`.
+Cockpit v352 is installed natively (not containerized) for server management. Accessible on port 9090, reverse-proxied via `cockpit.example.com`.
 
 ## Backup
 
