@@ -329,7 +329,6 @@ Ensure `*.example.com` points to the new Oracle Cloud instance's public IP.
 | Portainer                | portainer-ce:lts                                 |
 | Cockpit                  | 352                                              |
 | User                     | mobius (UID 1000, GID 1000, sudo NOPASSWD)       |
-| Secondary user           | steam (UID 1001, for Valheim/SteamCMD)           |
 | Data drive               | WD 12TB, LABEL=data, mounted at `/data`          |
 | Backup drive             | Seagate 5TB, LABEL=backup-5tb, `/mnt/backup-5tb` |
 | oci OS                   | Ubuntu 24.04 LTS                                 |

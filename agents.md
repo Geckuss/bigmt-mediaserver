@@ -59,12 +59,6 @@
 | Redis (Valkey) | internal |
 | PostgreSQL | internal |
 
-### Valheim Stack
-
-| Service | Port |
-|---------|------|
-| Valheim | 2456-2457/udp |
-
 ## Paths
 
 - `${DATA}` = `/data` — root data directory

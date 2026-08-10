@@ -57,9 +57,6 @@ graph LR
             Redis["Valkey (Redis)"]
             Postgres["PostgreSQL"]
         end
-        subgraph valheim["Valheim Stack"]
-            VH["Valheim :2456-2457/udp"]
-        end
     end
 
     subgraph Storage
@@ -138,12 +135,6 @@ graph LR
 | **Immich ML**      | Machine learning (CUDA)          | internal |
 | **Redis (Valkey)** | Cache                            | internal |
 | **PostgreSQL**     | Database (vectorchord+pgvectors) | internal |
-
-### Valheim Stack (`stacks/valheim.yml`)
-
-| Service     | Description           | Port          |
-| ----------- | --------------------- | ------------- |
-| **Valheim** | Dedicated game server | 2456-2457/udp |
 
 ## Service Dependency Map
 
@@ -432,7 +423,6 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 3. Deploy stacks via **Portainer** (Stacks → Add stack → paste compose file contents, add env vars from `.env`):
    - Main stack from `stacks/docker-compose.yml`
    - Immich stack from `stacks/immich.yml`
-   - Valheim stack from `stacks/valheim.yml`
 
    > **Do not** use `docker compose` CLI — Portainer manages all stacks and CLI-created containers cause naming conflicts.
 
@@ -457,8 +447,7 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 │   └── install-ffmpeg.sh      # ffmpeg installer for LinuxServer containers
 ├── stacks/
 │   ├── docker-compose.yml     # Main stack (Jellyfin, *arr, backrest, etc.)
-│   ├── immich.yml             # Immich photo management stack
-│   └── valheim.yml            # Valheim game server
+│   └── immich.yml             # Immich photo management stack
 ├── .env.example               # Environment variable template
 ├── AGENTS.md                  # Agent instructions for this project
 ├── DISASTER-RECOVERY.md       # Full rebuild runbook for bigmt and OCI
