@@ -93,30 +93,6 @@ graph LR
     Backrest -->|restic| Backup
 ```
 
-### Backup Flow
-
-```mermaid
-graph TB
-    Plug["Drive plugged in"]
-    udev["udev rule<br/>99-backup-drive.rules"]
-    systemd["auto-backup.service"]
-    Script["auto-backup.sh"]
-    Mount["Mount drive"]
-    Cooldown{"Cooldown<br/>check"}
-    API["Backrest API"]
-    Critical["critical plan<br/>configs + Immich<br/>(30d cooldown)"]
-    Media["media plan<br/>3TB media<br/>(90d cooldown)"]
-    Unmount["Unmount +<br/>power off"]
-    Discord["Discord<br/>notification"]
-    Skip["Skip<br/>(too recent)"]
-
-    Plug --> udev --> systemd --> Script --> Mount --> Cooldown
-    Cooldown -->|elapsed| API
-    Cooldown -->|not elapsed| Skip
-    API --> Critical --> Media --> Unmount --> Discord
-    Skip --> Discord
-```
-
 - **bigmt** — main server running all services via Docker/Portainer
 - **Oracle Cloud (oci)** — reverse proxy running Caddy, connected to bigmt over Tailscale
 - **DNS** — `*.example.com` points to Oracle Cloud public IP; Caddy handles TLS and proxies to bigmt via Tailscale hostname `<TAILSCALE_HOSTNAME>`
@@ -188,7 +164,7 @@ What breaks when a component goes down:
 | **qBittorrent** | All active downloads stop. Radarr/Sonarr can't send new downloads. Completed media unaffected. |
 | **Jellyfin** | No media playback. All *arr services and downloads continue working independently. |
 | **Jellyseerr** | No media request UI. Radarr/Sonarr still process existing items. |
-| **Backrest** | No backups run (manual or auto-backup). Data integrity at risk until restored. |
+| **Backrest** | No backups run (manual or scheduled). Data integrity at risk until restored. |
 | **Immich** | Photo/video library inaccessible. ML processing stops. PostgreSQL data preserved on disk. |
 | **Immich PostgreSQL** | Immich server fully non-functional (all data in DB). Requires DB restore from backup. |
 | **Seafile** | File sync inaccessible. Seafile MariaDB data preserved on disk. |
@@ -427,27 +403,6 @@ Cockpit v352 is installed natively (not containerized) for server management. Ac
 | **critical** | Service configs, Immich uploads         | 3 weekly, 3 monthly | 30 days  |
 | **media**    | Media library (excludes Immich gallery) | 2 monthly           | 90 days  |
 
-### Auto-backup on drive plug
-
-When the backup drive (`LABEL=backup-5tb`) is plugged in, a udev rule triggers an automated backup flow:
-
-1. udev detects the drive → triggers `auto-backup.service`
-2. Script mounts the drive to `/mnt/backup-5tb`
-3. Checks each plan's cooldown via Backrest API (skips if too recent)
-4. Triggers eligible plans sequentially (critical first, then media)
-5. Unmounts the drive when all plans complete
-
-**Files on server:**
-
-| File | Location |
-|------|----------|
-| Script | `/usr/local/bin/auto-backup.sh` |
-| Credentials | `/etc/backrest-api-credentials` (root-only, chmod 600) |
-| udev rule | `/etc/udev/rules.d/99-backup-drive.rules` |
-| systemd service | `/etc/systemd/system/auto-backup.service` |
-
-**Monitoring:** `sudo journalctl -u auto-backup.service -f`
-
 ## Custom Scripts
 
 ### `scripts/extract-subs.sh`
@@ -497,9 +452,7 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 ├── proxy/
 │   └── Caddyfile              # Caddy reverse proxy config (runs on Oracle Cloud)
 ├── scripts/
-│   ├── auto-backup.sh         # Auto-backup script (triggered by udev on drive plug)
-│   ├── auto-backup.service    # systemd oneshot service for auto-backup
-│   ├── 99-backup-drive.rules  # udev rule to detect backup drive
+│   ├── dock-hdd.sh            # mountdock/unmountdock/pwoffdock helpers for the USB dock
 │   ├── extract-subs.sh        # ASS/SSA to SRT subtitle extractor for Radarr/Sonarr
 │   └── install-ffmpeg.sh      # ffmpeg installer for LinuxServer containers
 ├── stacks/

@@ -229,30 +229,7 @@ sudo systemctl enable --now cockpit.socket
 
 Accessible at `https://bigmt:9090`.
 
-### Step 13: Set up auto-backup
-
-Deploy the auto-backup system that triggers backups when the drive is plugged in:
-
-```bash
-# Copy the script from the repo
-sudo cp scripts/auto-backup.sh /usr/local/bin/auto-backup.sh
-sudo chmod 755 /usr/local/bin/auto-backup.sh
-
-# Create credentials file (root-only)
-sudo tee /etc/backrest-api-credentials > /dev/null <<'EOF'
-BACKREST_USER=<BACKREST_USERNAME>
-BACKREST_PASS=<BACKREST_PASSWORD>
-EOF
-sudo chmod 600 /etc/backrest-api-credentials
-
-# Install udev rule and systemd service
-sudo cp scripts/99-backup-drive.rules /etc/udev/rules.d/
-sudo cp scripts/auto-backup.service /etc/systemd/system/
-sudo udevadm control --reload-rules
-sudo systemctl daemon-reload
-```
-
-### Step 14: Post-restore verification
+### Step 13: Post-restore verification
 
 - [ ] `nvidia-smi` shows GTX 1070
 - [ ] `docker ps` shows all containers running
@@ -271,7 +248,6 @@ sudo systemctl daemon-reload
 - [ ] Seafile: web UI accessible at `:8082`
 - [ ] Uptime Kuma: monitors loaded at `:3001`
 - [ ] Tailscale: `tailscale status` shows connected peers
-- [ ] Auto-backup: `sudo systemctl status auto-backup.service` shows loaded
 
 ---
 
