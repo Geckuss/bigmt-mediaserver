@@ -214,6 +214,24 @@ services:
       - seafile-memcached
     restart: unless-stopped
 
+  scrutiny:
+    image: ghcr.io/analogj/scrutiny:master-omnibus
+    container_name: scrutiny
+    cap_add:
+      - SYS_RAWIO
+    ports:
+      - ${SCRUTINY_PORT:-8079}:8080
+    volumes:
+      - /run/udev:/run/udev:ro
+      - ${CONFIGS}/scrutiny/config:/opt/scrutiny/config
+      - ${CONFIGS}/scrutiny/influxdb:/opt/scrutiny/influxdb
+    devices:
+      - /dev/sda
+      - /dev/sdb
+    environment:
+      - TZ=${TZ:-Europe/Helsinki}
+    restart: unless-stopped
+
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage

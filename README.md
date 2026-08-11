@@ -124,6 +124,7 @@ graph LR
 | **Pi-hole**     | DNS ad blocker             | host mode (80, 8089) |
 | **Backrest**    | Backup management (restic) | 9898                 |
 | **Uptime Kuma** | Status monitoring          | 3001                 |
+| **Scrutiny**    | Disk S.M.A.R.T. monitoring | 8079                 |
 | **Seafile**     | File sync & share          | 8082                 |
 | **Homepage**    | Dashboard                  | 3000                 |
 
@@ -193,6 +194,7 @@ Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains unde
 | `pihole.*`                       | Pi-hole (:80)       |
 | `backrest.*`                     | Backrest (:9898)    |
 | `uptime.*`                       | Uptime Kuma (:3001) |
+| `scrutiny.*`                     | Scrutiny (:8079) |
 | `seafile.*`                       | Seafile (:8082)     |
 | `seraphine.*`                     | Vocard Dashboard (:8050) |
 | `bigmt.example.com`              | Homepage (:3000)    |

@@ -74,6 +74,10 @@ uptime.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:3001
 }
+scrutiny.example.com {
+    import security_headers
+    reverse_proxy http://<TAILSCALE_HOSTNAME>:8079
+}
 seafile.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8082

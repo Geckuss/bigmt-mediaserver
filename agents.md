@@ -37,6 +37,7 @@
 | Seafile MariaDB | internal |
 | Seafile Memcached | internal (alias: `memcached`) |
 | Uptime Kuma | 3001 |
+| Scrutiny | 8079 |
 | Homepage | 3000 |
 
 ### Vocard Stack
