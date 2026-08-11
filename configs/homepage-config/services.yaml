@@ -1,0 +1,208 @@
+# NOTE: API keys/passwords and hostnames are sanitized with placeholders.
+# The live values live only on the server at ${CONFIGS}/homepage-config/services.yaml.
+# Glances tiles talk to the host-network Glances at host.docker.internal:61208 (API v4).
+# App widgets reach host-mode/other services via host.docker.internal:<port>.
+
+- System:
+    - CPU:
+        widget:
+          type: glances
+          url: http://host.docker.internal:61208
+          version: 4
+          metric: cpu
+          chart: true
+          refreshInterval: 5000
+          pointsLimit: 15
+    - Memory:
+        widget:
+          type: glances
+          url: http://host.docker.internal:61208
+          version: 4
+          metric: memory
+          chart: true
+          refreshInterval: 5000
+          pointsLimit: 15
+    - Disk Usage:
+        widget:
+          type: glances
+          url: http://host.docker.internal:61208
+          version: 4
+          metric: fs:/data
+          chart: true
+          refreshInterval: 10000
+    - CPU Temp:
+        widget:
+          type: glances
+          url: http://host.docker.internal:61208
+          version: 4
+          metric: sensor:Package id 0
+          chart: true
+          refreshInterval: 10000
+    - Network:
+        widget:
+          type: glances
+          url: http://host.docker.internal:61208
+          version: 4
+          metric: network:enp2s0
+          chart: true
+          refreshInterval: 5000
+          pointsLimit: 15
+    - Disk I/O:
+        widget:
+          type: glances
+          url: http://host.docker.internal:61208
+          version: 4
+          metric: disk:sda
+          chart: true
+          refreshInterval: 5000
+          pointsLimit: 15
+
+- Apps:
+    - Jellyfin:
+        icon: jellyfin.png
+        href: https://jellyfin.example.com
+        description: Media Server
+        server: my-docker
+        container: jellyfin
+        widget:
+          type: jellyfin
+          url: http://host.docker.internal:8096
+          key: <JELLYFIN_API_KEY>
+          enableBlocks: true
+          enableNowPlaying: false
+    - Jellyseerr:
+        icon: jellyseerr.png
+        href: https://jellyseerr.example.com
+        description: Media Requests
+        server: my-docker
+        container: jellyseerr
+        widget:
+          type: jellyseerr
+          url: http://host.docker.internal:5055
+          key: <JELLYSEERR_API_KEY>
+    - Radarr:
+        icon: radarr.png
+        href: https://radarr.example.com
+        description: Movies
+        server: my-docker
+        container: radarr
+        widget:
+          type: radarr
+          url: http://host.docker.internal:7878
+          key: <RADARR_API_KEY>
+    - Sonarr:
+        icon: sonarr.png
+        href: https://sonarr.example.com
+        description: TV Shows
+        server: my-docker
+        container: sonarr
+        widget:
+          type: sonarr
+          url: http://host.docker.internal:8989
+          key: <SONARR_API_KEY>
+    - qBittorrent:
+        icon: qbittorrent.png
+        href: https://qbittorrent.example.com
+        description: Torrent Client
+        server: my-docker
+        container: qbittorrent
+        widget:
+          type: qbittorrent
+          url: http://host.docker.internal:8080
+          username: <QBITTORRENT_USER>
+          password: <QBITTORRENT_PASSWORD>
+    - Prowlarr:
+        icon: prowlarr.png
+        href: https://prowlarr.example.com
+        description: Indexer Manager
+        server: my-docker
+        container: prowlarr
+        widget:
+          type: prowlarr
+          url: http://host.docker.internal:9696
+          key: <PROWLARR_API_KEY>
+    - Bazarr:
+        icon: bazarr.png
+        href: https://bazarr.example.com
+        description: Subtitles
+        server: my-docker
+        container: bazarr
+        widget:
+          type: bazarr
+          url: http://host.docker.internal:6767
+          key: <BAZARR_API_KEY>
+    - Immich:
+        icon: immich.png
+        href: https://immich.example.com
+        description: Photo Management
+        server: my-docker
+        container: immich_server
+        widget:
+          type: immich
+          url: http://host.docker.internal:2283
+          key: <IMMICH_API_KEY>
+          version: 2
+    - Pi-hole:
+        icon: pi-hole.png
+        href: https://pihole.example.com
+        description: DNS Ad Blocker
+        server: my-docker
+        container: pihole
+        widget:
+          type: pihole
+          url: http://host.docker.internal:80
+          version: 6
+          key: <PIHOLE_PASSWORD>
+    - Portainer:
+        icon: portainer.png
+        href: https://portainer.example.com
+        description: Docker Management
+        server: my-docker
+        container: portainer
+        widget:
+          type: portainer
+          url: http://host.docker.internal:9000
+          env: 3
+          key: <PORTAINER_API_KEY>
+    - Uptime Kuma:
+        icon: uptime-kuma.png
+        href: https://uptime.example.com
+        description: Status Monitoring
+        server: my-docker
+        container: uptime-kuma
+        widget:
+          type: uptimekuma
+          url: http://host.docker.internal:3001
+          slug: default
+
+- Links:
+    - Seafile:
+        icon: seafile.png
+        href: https://seafile.example.com
+        description: File Sync & Share
+        server: my-docker
+        container: seafile
+    - Seraphine:
+        icon: discord.png
+        href: https://seraphine.example.com
+        description: Vocard Dashboard
+    - Cockpit:
+        icon: cockpit.png
+        href: https://cockpit.example.com
+        description: Server Management
+    - Scrutiny:
+        icon: scrutiny.png
+        href: https://scrutiny.example.com
+        description: Disk S.M.A.R.T. Monitoring
+        server: my-docker
+        container: scrutiny
+    - Backrest:
+        icon: backrest.png
+        href: https://backrest.example.com
+        description: Backup Management
+        server: my-docker
+        container: backrest
+    - Pterodactyl:
+        icon: pterodactyl.png
+        href: https://pterodactyl.example.com
+        description: Game Server Panel

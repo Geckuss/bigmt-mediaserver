@@ -232,16 +232,3 @@ services:
       - TZ=${TZ:-Europe/Helsinki}
     restart: unless-stopped
 
-  homepage:
-    image: ghcr.io/gethomepage/homepage:latest
-    container_name: homepage
-    ports:
-      - ${HOMEPAGE_PORT:-3000}:3000
-    volumes:
-      - ${CONFIGS}/homepage-config:/app/config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /data:/data:ro
-    environment:
-      - TZ=${TZ:-Europe/Helsinki}
-      - HOMEPAGE_ALLOWED_HOSTS=bigmt.example.com,homepage.example.com
-    restart: unless-stopped

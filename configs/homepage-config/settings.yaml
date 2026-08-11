@@ -1,0 +1,18 @@
+title: bigmt
+favicon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/server.png
+theme: dark
+color: slate
+headerStyle: clean
+layout:
+  System:
+    style: row
+    columns: 3
+    header: false
+  Apps:
+    style: row
+    columns: 4
+    header: false
+  Links:
+    style: row
+    columns: 6
+    header: false

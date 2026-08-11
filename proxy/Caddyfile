@@ -66,10 +66,6 @@ backrest.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9898
 }
-homepage.example.com {
-    import security_headers
-    reverse_proxy http://<TAILSCALE_HOSTNAME>:3000
-}
 uptime.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:3001

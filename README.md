@@ -126,7 +126,13 @@ graph LR
 | **Uptime Kuma** | Status monitoring          | 3001                 |
 | **Scrutiny**    | Disk S.M.A.R.T. monitoring | 8079                 |
 | **Seafile**     | File sync & share          | 8082                 |
-| **Homepage**    | Dashboard                  | 3000                 |
+
+### Homepage Stack (`stacks/homepage.yml`)
+
+| Service      | Description                                   | Port                 |
+| ------------ | --------------------------------------------- | -------------------- |
+| **Homepage** | Dashboard: app links + widgets + metrics      | 3000                 |
+| **Glances**  | System metrics backend (CPU/GPU/RAM/disk/net) | host mode (61208)    |
 
 ### Immich Stack (`stacks/immich.yml`)
 
@@ -180,7 +186,7 @@ Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains unde
 
 | Subdomain                        | Backend             |
 | -------------------------------- | ------------------- |
-| `bigmt.example.com` / `jellyfin.*` | Jellyfin (:8096)    |
+| `jellyfin.*`                     | Jellyfin (:8096)    |
 | `sonarr.*`                       | Sonarr (:8989)      |
 | `radarr.*`                       | Radarr (:7878)      |
 | `bazarr.*`                       | Bazarr (:6767)      |
@@ -443,6 +449,42 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
    ssh oci "sudo systemctl reload caddy"
    ```
 
+## Portainer & Hot Deploys
+
+All stacks are managed by **Portainer**, which materializes each stack's compose file
+and env onto the host inside the `portainer_data` volume:
+
+| What | Host path (root-owned) |
+| ---- | ---------------------- |
+| Main stack compose | `/data/docker/volumes/portainer_data/_data/compose/1/docker-compose.yml` |
+| Main stack env     | `/data/docker/volumes/portainer_data/_data/compose/1/stack.env` |
+
+> The stack **id** (`1` here) is the number in Portainer's stack URL. Find any container's
+> stack file with:
+> `docker inspect <name> --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}'`
+> (that path is *inside* the Portainer container; prefix it with the host volume path above).
+
+### Hot-injecting a change (no UI editing)
+
+To add/modify a service without pasting YAML into the Portainer UI, edit the materialized
+compose file directly and redeploy just the changed service:
+
+```bash
+D=/data/docker/volumes/portainer_data/_data/compose/1
+# 1. back up first
+sudo cp $D/docker-compose.yml $D/docker-compose.yml.bak.$(date +%Y%m%d%H%M%S)
+# 2. edit $D/docker-compose.yml (sudo)  — keep it in sync with stacks/docker-compose.yml in this repo
+# 3. redeploy only the changed service, using Portainer's own env file
+sudo docker compose -f $D/docker-compose.yml --env-file $D/stack.env up -d <service>
+```
+
+> ⚠️ **Drift caveat:** Portainer also stores the stack body in its internal database.
+> A file-only hot edit runs correctly, but the **next** time you click *Update the stack*
+> in the Portainer UI it will overwrite your file edit with the DB copy. To make the change
+> permanent, also paste the same YAML into the Portainer UI editor once (or use the Portainer
+> API `PUT /api/stacks/{id}`). **Always keep `stacks/docker-compose.yml` in this repo as the
+> source of truth** and mirror hot edits back into it.
+
 ## Directory Structure
 
 ```
@@ -450,6 +492,8 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 ├── configs/
 │   └── backrest/
 │       └── config.json            # Sanitized Backrest config (for bootstrap restore)
+│   └── glances/
+│       └── Dockerfile            # glibc Glances build (GPU/NVML metrics for Homepage)
 ├── proxy/
 │   └── Caddyfile              # Caddy reverse proxy config (runs on Oracle Cloud)
 ├── scripts/
@@ -458,6 +502,7 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 │   └── install-ffmpeg.sh      # ffmpeg installer for LinuxServer containers
 ├── stacks/
 │   ├── docker-compose.yml     # Main stack (Jellyfin, *arr, backrest, etc.)
+│   ├── homepage.yml           # Homepage dashboard + Glances metrics stack
 │   └── immich.yml             # Immich photo management stack
 ├── .env.example               # Environment variable template
 ├── AGENTS.md                  # Agent instructions for this project

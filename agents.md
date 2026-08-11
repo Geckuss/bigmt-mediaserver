@@ -6,6 +6,25 @@
 - **SSH oci**: `ssh oci`
 - **Management**: Portainer (Docker)
 
+## Portainer Stack Files & Hot Deploys
+
+Portainer materializes each stack onto the host under the `portainer_data` volume:
+
+- Main stack compose: `/data/docker/volumes/portainer_data/_data/compose/1/docker-compose.yml`
+- Main stack env: `/data/docker/volumes/portainer_data/_data/compose/1/stack.env`
+- Files are **root-owned** — read/edit with `sudo`. The stack id (`1`) is the number in the Portainer stack URL.
+
+Hot-inject a service change without editing in the UI (back up first, then redeploy only the changed service):
+
+```bash
+D=/data/docker/volumes/portainer_data/_data/compose/1
+sudo cp $D/docker-compose.yml $D/docker-compose.yml.bak.$(date +%Y%m%d%H%M%S)
+# edit $D/docker-compose.yml with sudo, mirror change into repo stacks/docker-compose.yml
+sudo docker compose -f $D/docker-compose.yml --env-file $D/stack.env up -d <service>
+```
+
+Drift caveat: Portainer also keeps the stack body in its DB; the next UI "Update the stack" overwrites file-only edits. Paste the same YAML into the UI once (or use API `PUT /api/stacks/{id}`) to persist. Keep `stacks/docker-compose.yml` in the repo as source of truth.
+
 ## Architecture
 
 ```
@@ -38,7 +57,18 @@
 | Seafile Memcached | internal (alias: `memcached`) |
 | Uptime Kuma | 3001 |
 | Scrutiny | 8079 |
+
+### Homepage Stack
+
+| Service | Port |
+|---------|------|
 | Homepage | 3000 |
+| Glances | host mode (61208) |
+
+- Homepage is the landing page at `bigmt.*` — app links + service API widgets + system metrics.
+- Glances is the metrics backend. Homepage reads its REST API at `http://host.docker.internal:61208` (Homepage has `host.docker.internal:host-gateway`; Glances runs `network_mode: host`).
+- Glances uses a **custom glibc image** (`configs/glances/Dockerfile`), NOT the official `nicolargo/glances:*-full` (musl/Alpine) image. The NVIDIA runtime injects the glibc `libnvidia-ml.so`, which musl can't load (`dlvsym: symbol not found`) — so GPU (NVML) metrics only work on a glibc base.
+- Deployed as its own compose project (`-p homepage`); stack files live at `${CONFIGS}/homepage/stack/`.
 
 ### Vocard Stack
 

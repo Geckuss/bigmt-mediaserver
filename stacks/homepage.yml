@@ -1,0 +1,48 @@
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    ports:
+      - ${HOMEPAGE_PORT:-3000}:3000
+    volumes:
+      - ${CONFIGS}/homepage-config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${DATA}:/data:ro
+    environment:
+      - TZ=${TZ:-Europe/Helsinki}
+      - HOMEPAGE_ALLOWED_HOSTS=${HOMEPAGE_ALLOWED_HOSTS:-bigmt.example.com,homepage.example.com}
+    # lets Homepage reach the host-network Glances at host.docker.internal:61208
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+
+  glances:
+    # prebuilt glibc image (configs/glances/Dockerfile) so NVML loads for GPU metrics
+    # build once on the host:  docker build -t glances-gpu:local ${CONFIGS}/glances
+    # (Portainer string-stacks can't build from a host path, so we reference the prebuilt image)
+    image: glances-gpu:local
+    container_name: glances
+    # host mode gives real per-interface network stats (incl. tailscale0) + host sensors
+    network_mode: host
+    pid: host
+    environment:
+      - TZ=${TZ:-Europe/Helsinki}
+      # run the web/API server on :61208
+      - GLANCES_OPT=-w
+      # GTX 1070 metrics via NVML (libnvidia-ml injected by the nvidia runtime)
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=utility
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/etc/os-release:ro
+      # read-only mount so Glances can report host data-drive usage (fs:/data tile)
+      - ${DATA}:/data:ro
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, utility]
+    restart: unless-stopped
