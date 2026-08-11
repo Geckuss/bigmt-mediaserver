@@ -80,7 +80,7 @@ pwoffdock() {
     if mountpoint -q /mnt/backup; then
         sudo umount /mnt/backup || { echo "pwoffdock: busy - unmount /mnt/backup first" >&2; return 1; }
     fi
-    if udisksctl power-off -b "/dev/$d"; then
+    if sudo udisksctl power-off -b "/dev/$d"; then
         echo "pwoffdock: /dev/$d powered off"
     else
         echo "pwoffdock: udisksctl failed, spinning down via hdparm" >&2

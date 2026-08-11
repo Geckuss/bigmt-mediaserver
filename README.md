@@ -193,8 +193,10 @@ Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains unde
 | `pihole.*`                       | Pi-hole (:80)       |
 | `backrest.*`                     | Backrest (:9898)    |
 | `uptime.*`                       | Uptime Kuma (:3001) |
-| `seafile.*`                      | Seafile (:8082)     |
+| `seafile.*`                       | Seafile (:8082)     |
+| `seraphine.*`                     | Vocard Dashboard (:8050) |
 | `bigmt.example.com`              | Homepage (:3000)    |
+| `pterodactyl.*`                   | Pterodactyl panel + Wings API (served by Caddy on oci, not via Tailscale) |
 
 Caddy auto-provisions TLS certificates via Let's Encrypt.
 
@@ -216,9 +218,16 @@ The reverse proxy runs on an Oracle Cloud free-tier instance.
 | 22    | TCP      | SSH                          |
 | 80    | TCP      | HTTP (Caddy / Let's Encrypt) |
 | 443   | TCP      | HTTPS (Caddy)                |
+| 2022  | TCP      | Pterodactyl Wings SFTP       |
+| 25565-25575 | TCP/UDP | Minecraft game server ports (Pterodactyl) |
+| 8443  | TCP      | Pterodactyl Wings API (node 2) |
 | 41641 | UDP      | Tailscale direct connections |
 
 All other incoming traffic is denied by default.
+
+## Pterodactyl
+
+Game server panel for Minecraft servers, running on oci (not bigmt). See [PTERODACTYL.md](PTERODACTYL.md) for the full setup — nodes, game servers, ports, and management commands.
 
 ## Pi-hole
 
@@ -451,6 +460,7 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
 ├── .env.example               # Environment variable template
 ├── AGENTS.md                  # Agent instructions for this project
 ├── DISASTER-RECOVERY.md       # Full rebuild runbook for bigmt and OCI
+├── PTERODACTYL.md             # Pterodactyl game server panel docs (runs on OCI)
 └── README.md
 ```
 
