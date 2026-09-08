@@ -1,0 +1,18 @@
+services:
+  vrising:
+    image: trueosiris/vrising
+    container_name: vrising
+    environment:
+      - TZ=${TZ:-Europe/Helsinki}
+      - SERVERNAME=${VRISING_SERVERNAME:-Manala}
+      - WORLDNAME=${VRISING_WORLDNAME:-world1}
+    volumes:
+      # server files (overwritten on every Steam update)
+      - ${CONFIGS}/vrising/server:/mnt/vrising/server
+      # world saves + Settings/ (ServerHostSettings.json, ServerGameSettings.json)
+      - ${CONFIGS}/vrising/persistentdata:/mnt/vrising/persistentdata
+    ports:
+      # game + query ports are UDP (cannot be reverse-proxied via Caddy HTTP)
+      - ${VRISING_GAME_PORT:-9876}:9876/udp
+      - ${VRISING_QUERY_PORT:-9877}:9877/udp
+    restart: unless-stopped
