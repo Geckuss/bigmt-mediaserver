@@ -1,0 +1,82 @@
+# Infrastructure: the services that keep the house running, deliberately kept
+# out of stacks/docker-compose.yml so a workload deploy cannot restart them.
+#
+#   pihole        LAN DNS. If this is down, name resolution dies for everything
+#                 including whatever you are currently deploying.
+#   backrest      the safety net. Should not restart alongside the workloads it
+#                 is meant to rescue.
+#   uptime-kuma   monitoring. Down exactly when you need to see what broke.
+#   scrutiny      disk SMART on the two 7.3T data drives.
+#
+# Deploy order matters: after moving these out of mediastack, deploy
+# docker-compose.yml FIRST (it removes them from that project), then this one.
+
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    network_mode: host
+    environment:
+      - TZ=${TZ:-Europe/Helsinki}
+      - WEBPASSWORD=${PIHOLE_PASSWORD}
+      - WEB_PORT=${PIHOLE_WEBUI:-8089}
+      - DNSMASQ_LISTENING=all
+    volumes:
+      - ${CONFIGS}/pihole/etc-pihole:/etc/pihole
+      - ${CONFIGS}/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    restart: unless-stopped
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    ports:
+      - ${UPTIME_KUMA_PORT:-3001}:3001
+    volumes:
+      - ${CONFIGS}/uptime-kuma:/app/data
+    restart: unless-stopped
+
+  backrest:
+    image: garethgeorge/backrest:latest
+    container_name: backrest
+    hostname: backrest
+    ports:
+      - ${BACKREST_PORT:-9898}:9898
+    volumes:
+      - ${CONFIGS}/backrest/data:/data
+      - ${CONFIGS}/backrest/config:/config
+      - ${CONFIGS}/backrest/cache:/cache
+      # Sources (read-only)
+      - ${CONFIGS}:/userdata/configs:ro
+      - ${UPLOAD_LOCATION}:/userdata/immich-uploads:ro
+      - ${DATA}/media:/userdata/media:ro
+      # Backup drives. The mount points exist even when the drives are
+      # unplugged, so the container always sees a writable directory here.
+      # That is a hazard on its own: restic would happily init a brand new
+      # empty repo on the root SSD. See agents.md, "Backup drives", for the
+      # mountpoint guard that prevents it.
+      - /mnt/backup-5tb:/repos/primary
+      - /mnt/backup-1tb:/repos/secondary
+    environment:
+      - BACKREST_DATA=/data
+      - BACKREST_CONFIG=/config/config.json
+      - XDG_CACHE_HOME=/cache
+    restart: unless-stopped
+
+  scrutiny:
+    image: ghcr.io/analogj/scrutiny:master-omnibus
+    container_name: scrutiny
+    cap_add:
+      - SYS_RAWIO
+    ports:
+      - ${SCRUTINY_PORT:-8079}:8080
+    volumes:
+      - /run/udev:/run/udev:ro
+      - ${CONFIGS}/scrutiny/config:/opt/scrutiny/config
+      - ${CONFIGS}/scrutiny/influxdb:/opt/scrutiny/influxdb
+    devices:
+      # sda + sdc are the two 7.3T ST8000VX004 data drives; sdb is the 250GB boot SSD
+      - /dev/sda
+      - /dev/sdc
+    environment:
+      - TZ=${TZ:-Europe/Helsinki}
+    restart: unless-stopped
