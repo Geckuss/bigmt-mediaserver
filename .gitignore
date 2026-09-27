@@ -1,2 +1,18 @@
+# This repo is PUBLIC: only variable NAMES and obvious placeholders are committed.
+# Real values live on the host under ${CONFIGS}/secrets/ (root-only, Backrest-covered).
 .env
+*.env
+!.env.example
+!.env.*.example
 *.m3u8
+*.pem
+*.key
+*.p12
+id_rsa*
+
+# V Rising BepInEx pack + pre-generated IL2CPP interop assemblies: large binaries,
+# rebuilt from configs/vrising/Dockerfile. Kept on the host at
+# ${CONFIGS}/vrising/wrapper-build/ and covered by Backrest, never committed.
+configs/vrising/bepinex/
+configs/vrising/interop/
+configs/vrising/*.zip

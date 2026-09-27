@@ -1,5 +1,25 @@
 # Mediaserver - agents.md
 
+## Secrets (this repo is PUBLIC)
+
+`Geckuss/bigmt-mediaserver` is a **public, anonymized** repo. Nothing that reaches `master` may contain a real credential.
+
+**The contract:**
+
+- **In git:** variable *names* and obvious placeholders only. `.env.example` is the authoritative list of names. Committed configs under `configs/` are templates using placeholders (`YOUR_BOT_TOKEN`, `<RESTIC_REPO_PASSWORD>`).
+- **On the host:** real values live in `${CONFIGS}/secrets/<stack>.env`, `chmod 600`, root-owned. `${CONFIGS}` is already covered by Backrest. Komodo attaches them per stack via `additional_env_files`, so values never enter Komodo's database.
+- **Never** commit a working credential "temporarily", and never paste one into a compose file to test something.
+
+**Enforcement (all three layers):**
+
+1. `.githooks/pre-commit` — built-in scan, zero dependencies. Enable with `git config core.hooksPath .githooks` (once, locally).
+2. `.gitleaks.toml` — broader rule set, used by CI and by the hook if `gitleaks` is installed locally.
+3. `.github/workflows/secret-scan.yml` — runs gitleaks over full history on every push to `master`, plus a compose parse check.
+
+**Adding an exception:** a value can only be allowlisted if it is worthless or rotated. Add the exact value to `ALLOW_VALUES` in `.githooks/pre-commit` **and** to `.gitleaks.toml`, with a comment justifying why it is safe to publish. Keep the list minimal.
+
+**Also enable in GitHub** (Settings → Code security, one-time, not a file): *Secret scanning* and *Push protection* — both free on public repos. These catch secrets pushed from machines other than this one, which the local hook cannot.
+
 ## Access
 
 - **SSH bigmt**: `ssh bigmt`

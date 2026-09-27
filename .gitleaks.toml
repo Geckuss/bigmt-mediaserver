@@ -1,0 +1,27 @@
+# Gitleaks config. Extends the default rules; the allowlist below is the only
+# deviation and must stay minimal -- this repo is public, so every allowed value
+# is published and must be worthless or rotated.
+#
+# Keep in sync with ALLOW_VALUES in .githooks/pre-commit.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Intentional placeholders and worthless published credentials"
+regexes = [
+  # vocard stack: lavalink password is identical to the dashboard IPC password.
+  # Both are internal to the vocard docker network (expose, not ports), so they
+  # are not reachable from outside. Worth rotating if that ever changes.
+  '''youshallnotpass''',
+  '''vocard-ipc-secret''',
+  # obvious placeholders
+  '''YOUR_[A-Z_]+''',
+  '''<[A-Z_]+>''',
+  '''(?i)changeme''',
+]
+paths = [
+  '''(^|/).*\.example$''',
+  '''(^|/).*\.example\..*$''',
+  '''(^|/)KOMODO-MIGRATION\.md$''',
+]

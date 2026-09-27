@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Pre-commit secret guard.
+#
+# Two layers:
+#   1. A built-in high-signal scan so this works with zero dependencies.
+#   2. gitleaks, if it happens to be installed (much broader rule set).
+#
+# This repo is PUBLIC. Only variable NAMES and obvious placeholders may be
+# committed; real values live on the host under ${CONFIGS}/secrets/.
+set -uo pipefail
+
+fail=0
+
+# Exact values that are committed on purpose. Keep this list short and justify
+# every entry -- these are published, so they must be worthless or rotated.
+ALLOW_VALUES='youshallnotpass vocard-ipc-secret'
+
+is_allowed() {
+  local v="$1"
+  for a in $ALLOW_VALUES; do
+    [ "$v" = "$a" ] && return 0
+  done
+  # Placeholders are not secrets.
+  case "$v" in
+    YOUR_*|your_*|CHANGEME*|changeme*|EXAMPLE*|example*|REDACTED*|*redacted*|placeholder*|xxxx*|XXXX*) return 0 ;;
+    '<'*'>'|'<'*) return 0 ;;
+    '${'*|'${'*) return 0 ;;
+    *'{'*'}'*) return 0 ;;
+  esac
+  return 1
+}
+
+# ---- Layer 1: built-in scan -------------------------------------------------
+scan_builtin() {
+  local tmp
+  tmp="$(mktemp)"
+  git diff --cached --name-only --diff-filter=ACM | while read -r f; do
+    [ -f "$f" ] || continue
+    case "$f" in
+      *.example|*.example.*|*.md) continue ;;
+    esac
+    git show ":$f" 2>/dev/null | grep -nE \
+      '(-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{50,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{32,})' \
+      | sed "s|^|$f:|"
+    git show ":$f" 2>/dev/null | grep -inE \
+      '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*"?[A-Za-z0-9/+_.!-]{12,}' \
+      | grep -viE '(=|:)[[:space:]]*"?(\$\{|<|YOUR_|CHANGEME|EXAMPLE|REDACTED|placeholder)' \
+      | sed "s|^|$f:|"
+  done > "$tmp"
+
+  if [ -s "$tmp" ]; then
+    echo "SECRET SCAN: possible secret(s) in staged files:" >&2
+    cat "$tmp" >&2
+    echo >&2
+    echo "This repo is PUBLIC. Commit variable NAMES and placeholders only." >&2
+    echo "If a hit is a false positive, add the exact value to ALLOW_VALUES" >&2
+    echo "in .githooks/pre-commit and .gitleaks.toml, with a reason." >&2
+    fail=1
+  fi
+  rm -f "$tmp"
+}
+
+scan_builtin
+
+# ---- Layer 2: gitleaks, if present -----------------------------------------
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks protect --staged --redact --config .gitleaks.toml; then
+    echo "SECRET SCAN: gitleaks found leaks in staged changes." >&2
+    fail=1
+  fi
+else
+  echo "note: gitleaks not installed, ran built-in scan only."
+  echo "      winget install gitleaks  /  brew install gitleaks"
+fi
+
+exit $fail
