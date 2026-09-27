@@ -37,6 +37,9 @@ services:
       - /etc/os-release:/etc/os-release:ro
       # read-only mount so Glances can report host data-drive usage (fs:/data tile)
       - ${DATA}:/data:ro
+      # locks down the web API: Host header allowlist + no CORS. Without it
+      # Glances warns and leaves /api/4/all readable by anything on the LAN.
+      - ${CONFIGS}/glances/glances.conf:/etc/glances/glances.conf:ro
     runtime: nvidia
     deploy:
       resources:
