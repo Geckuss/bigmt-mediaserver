@@ -1,0 +1,18 @@
+[Unit]
+Description=Komodo alert forwarder to Discord (adds stack deep links)
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u /usr/local/sbin/komodo-discord-forwarder.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/data/backups/configs/komodo/discord-webhook
+
+[Install]
+WantedBy=multi-user.target

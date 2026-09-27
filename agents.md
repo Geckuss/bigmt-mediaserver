@@ -180,3 +180,54 @@ The guard must be host-side: inside the container the bind mount looks mounted, 
 - Vocard translation keys in settings.json use flattened dot notation (e.g. `@@t_player.buttons.back@@`)
 - V Rising's image is built locally from `configs/vrising/Dockerfile` and exists in no registry, so `auto_pull`/`auto_update` must stay off for that stack. `scripts/update-vocard-lavalink.sh` bumps the Lavalink plugin jars in `${CONFIGS}`.
 - Game servers both have `stop_grace_period: 120s`: V Rising's world is 254MB and autosaves every few seconds, so a 10s default SIGTERM can land mid-write.
+
+## Alerting: deep-linked Discord notifications
+
+`komodo-discord-forwarder.service` sits between Komodo and Discord so every alert
+carries a link to the stack it came from.
+
+**Why it exists.** A Discord webhook is one-way: it cannot receive interactions,
+so a real "Update" *button* is impossible without registering a Discord
+application and exposing an interactions endpoint to the internet — a new public
+attack surface on the box that holds everything. Komodo cannot help either:
+`AlerterConfig` only carries resource filters (`resources`,
+`except_resources`), with no message template, and every endpoint type is just a
+`url`. So the link has to be added in a middlebox. The result is a link, not a
+button: you land on the stack page and click Deploy yourself, which is the right
+trade since the deploy stays authenticated and deliberate.
+
+**Alerters.** `discord-links` (Custom → the forwarder) is live. The original
+`discord` alerter is **disabled, not deleted**, so it is one toggle to go back.
+
+**Payload.** The Custom endpoint receives a nested envelope; the resource lives
+in `target`, and `target.id` is the Komodo resource id. The UI route is
+`/stacks/<id>`, so the id alone is enough to build the link:
+
+```json
+{"ts":…,"resolved":false,"level":"OK",
+ "target":{"type":"Stack","id":"6ab8f2bcca74d25672a1c6da"},
+ "data":{"type":"StackUpdateAvailable","data":{"id":"…","name":"immich"}}}
+```
+
+`target.type` is `Alerter` for a *Test*, and the real resource type otherwise.
+`resolved: true` marks a resolution and is rendered as ✅ rather than dropped, so
+nothing Komodo tells you is silently discarded. Anything unrecognised is logged
+verbatim to journald so the parser can be tightened against real traffic.
+
+**Gotchas that cost time here:**
+
+- **Discord 403s `Python-urllib/3.x`.** Cloudflare fronts the webhook endpoint
+  and rejects the default agent. A browser `User-Agent` is required; `curl` is
+  accepted, which is why a curl probe works while the Python service 403s.
+- **`ExecStart` needs `python3 -u`.** Without it stdout is block-buffered under
+  systemd and the service looks like it is doing nothing at all.
+- **It binds to `172.25.0.1:9911`**, the docker bridge, so nothing on the LAN
+  can post to it. Do not "fix" this to `0.0.0.0`.
+- **It replies 200 before posting to Discord**, so a slow Discord can never make
+  Komodo think an alert failed.
+- **Komodo's read API strips `_id`.** `ListStacks` and `ListAlerters` return
+  objects with no id, so anything addressed by id (`UpdateAlerter`) cannot be
+  driven purely through those. The collection is `Alerter`, capital A.
+- **Alerter config nests as** `{enabled, endpoint:{type, params:{url}}}`.
+  A flat `{type, url}` silently creates a *disabled* alerter instead of erroring.
+  `UpdateAlerter` requires `id` and rejects a name.
