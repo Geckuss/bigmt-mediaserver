@@ -189,6 +189,9 @@ tags = ["prod", "games"]
   repo = "Geckuss/bigmt-mediaserver"
   branch = "master"
   file_paths = ["stacks/valheim.yml"]
+  # The image is untagged, so it resolves to :latest. Leaving auto_pull on
+  # would let a routine deploy silently pull a newer server build.
+  auto_pull = false
   poll_for_updates = true
   environment = """
 CONFIGS = [[CONFIGS]]
