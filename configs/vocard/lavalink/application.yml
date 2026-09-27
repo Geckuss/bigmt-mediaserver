@@ -10,22 +10,43 @@ plugins:
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
+    # Valid names for youtube-plugin are: ANDROID_MUSIC, ANDROID_VR, IOS, MUSIC,
+    # MWEB, TV, TVHTML5EMBEDDED, WEB, WEBEMBEDDED. Unrecognised names are
+    # dropped silently, so the plugin falls back to its own defaults and you
+    # lose control over which clients get used.
+    #
+    # TV and MUSIC are the OAuth-capable clients, and the only ones that get
+    # past YouTube's "this video requires login" wall. Without a working OAuth
+    # session every remaining client fails. IOS and MWEB are extra fallbacks.
     clients:
+      - TV
       - MUSIC
       - ANDROID_VR
       - ANDROID_MUSIC
+      - IOS
+      - MWEB
       - WEB
       - WEBEMBEDDED
-      - TVHTML5EMBEDDED
     clientOptions:
       WEB:
-        playback: false
-        videoLoading: false
+        # was false/false, which guaranteed WEB could never resolve a track:
+        # it just logged "Video loading is disabled for this client"
+        playback: true
+        videoLoading: true
       WEBEMBEDDED:
         playlistLoading: false
         searching: false
     remoteCipher:
       url: "http://yt-cipher:8001"
+    # oauth lives only on the host, in ${CONFIGS}/vocard/lavalink/application.yml.
+    # The refresh token is a real Google credential and is never committed.
+    # skipInitialization must stay false, or every Lavalink restart silently
+    # drops the OAuth session and playback dies until the next manual restart.
+    oauth:
+      enabled: true
+      # leave refreshToken empty for the first run
+      refreshToken: ""
+      skipInitialization: false
   lavasrc:
     providers:
       - 'ytsearch:"%ISRC%"'
