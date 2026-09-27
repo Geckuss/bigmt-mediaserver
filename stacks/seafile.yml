@@ -1,0 +1,63 @@
+# Seafile: file sync and share, with its own MariaDB and Memcached.
+#
+# Split out of stacks/docker-compose.yml (mediastack). Nothing outside this trio
+# ever talked to it over compose DNS -- seahub reaches the DB and the cache by
+# service name, and the reverse proxy reaches it on published host port 8082 --
+# so it was only ever a guest in mediastack, not a member of it. Keeping it
+# separate means a seafileltd/seafile-mc:latest pull that turns out to be broken
+# cannot take Radarr and Sonarr down with it, and a Seafile restart is no longer
+# a full mediastack recreate.
+#
+# The three services stay together and MUST stay in this file. They are coupled
+# by name:
+#   DB_HOST=seafile-mysql    compose service DNS
+#   memcached                network alias, referenced from seahub_settings.py
+# Splitting them across projects would mean publishing those ports and pointing
+# the config at a host instead.
+#
+# CUTOVER ORDER MATTERS. All three have an explicit container_name, so this
+# project cannot start while the old containers still exist -- compose fails
+# with "name already in use". Deploy stacks/docker-compose.yml FIRST (its
+# --remove-orphans takes the trio out of the mediastack project), then this one.
+# Expect ~1min of downtime; all state is in bind mounts under ${CONFIGS} and
+# survives the move.
+
+services:
+  seafile-mysql:
+    image: mariadb:10.11
+    container_name: seafile-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${SEAFILE_MYSQL_ROOT_PASSWORD}
+      - MYSQL_LOG_CONSOLE=true
+    volumes:
+      - ${CONFIGS}/seafile-mysql:/var/lib/mysql
+    restart: unless-stopped
+
+  seafile-memcached:
+    image: memcached:1.6
+    container_name: seafile-memcached
+    entrypoint: memcached -m 256
+    networks:
+      default:
+        aliases:
+          - memcached
+    restart: unless-stopped
+
+  seafile:
+    image: seafileltd/seafile-mc:latest
+    container_name: seafile
+    ports:
+      - ${SEAFILE_PORT:-8082}:80
+    volumes:
+      - ${CONFIGS}/seafile-data:/shared
+    environment:
+      - DB_HOST=seafile-mysql
+      - DB_ROOT_PASSWD=${SEAFILE_MYSQL_ROOT_PASSWORD}
+      - SEAFILE_ADMIN_EMAIL=${SEAFILE_ADMIN_EMAIL}
+      - SEAFILE_ADMIN_PASSWORD=${SEAFILE_ADMIN_PASSWORD}
+      - SEAFILE_SERVER_HOSTNAME=${SEAFILE_HOSTNAME:-seafile.example.com}
+      - TZ=${TZ:-Europe/Helsinki}
+    depends_on:
+      - seafile-mysql
+      - seafile-memcached
+    restart: unless-stopped

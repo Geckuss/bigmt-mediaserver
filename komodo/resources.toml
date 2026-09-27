@@ -47,7 +47,8 @@ tags = ["prod"]
 #
 # Only stacks Komodo actually manages are declared here: the sync CREATES
 # anything it finds, so listing an unmigrated stack would spawn an empty one.
-# Still to migrate: vocard, valheim, v_rising.
+# Every Komodo-managed stack is declared below; the only omission is komodo's
+# own, which is hand-deployed and must not be managing itself.
 #
 # project_name is deliberately left empty everywhere, so it defaults to the
 # stack name and adopts the running compose project instead of recreating it.
@@ -55,7 +56,7 @@ tags = ["prod"]
 
 [[stack]]
 name = "mediastack"
-description = "the 11 *arr + seafile services that actually interact"
+description = "jellyfin + the *arr chain + downloads - they talk over host ports, not compose DNS"
 tags = ["prod", "media"]
   [stack.config]
   server = "bigmt"
@@ -65,15 +66,40 @@ tags = ["prod", "media"]
   auto_pull = false
   # Required: compose does NOT remove services dropped from the file without
   # this flag, it only reports them as orphans. Needed when moving services
-  # between stacks.
+  # between stacks -- this is how the seafile trio was reaped from here.
   extra_args = ["--remove-orphans"]
   poll_for_updates = true
-  links = ["https://jellyfin.bigmt.top", "https://radarr.bigmt.top", "https://sonarr.bigmt.top", "https://qbittorrent.bigmt.top", "https://seafile.bigmt.top"]
+  links = ["https://jellyfin.bigmt.top", "https://radarr.bigmt.top", "https://sonarr.bigmt.top", "https://qbittorrent.bigmt.top"]
   environment = """
 DATA = [[DATA]]
 CONFIGS = [[CONFIGS]]
 TZ = [[TZ]]
 UPLOAD_LOCATION = /data/media/gallery
+  """
+
+[[stack]]
+name = "seafile"
+description = "seafile + mariadb + memcached - own project, the three are coupled by service name"
+tags = ["prod", "files"]
+  [stack.config]
+  server = "bigmt"
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  file_paths = ["stacks/seafile.yml"]
+  auto_pull = false
+  # Same reason as mediastack: the trio moves as a unit, and a future split of
+  # it should reap orphans rather than leave them running unowned.
+  extra_args = ["--remove-orphans"]
+  poll_for_updates = true
+  links = ["https://seafile.bigmt.top"]
+  # Every field must be declared on a new stack. The sync is a PARTIAL merge:
+  # anything absent here is rewritten to the schema default, and for a stack
+  # that did not exist before, "absent" means "empty".
+  environment = """
+DATA = [[DATA]]
+CONFIGS = [[CONFIGS]]
+TZ = [[TZ]]
+SEAFILE_PORT = 8082
 SEAFILE_HOSTNAME = seafile.bigmt.top
 SEAFILE_ADMIN_EMAIL = <redacted>
 SEAFILE_MYSQL_ROOT_PASSWORD = [[SEAFILE_DB_PASSWORD]]

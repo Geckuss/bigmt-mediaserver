@@ -116,16 +116,40 @@ graph LR
 | **Radarr**      | Movie management           | 7878                 |
 | **Sonarr**      | TV show management         | 8989                 |
 | **Bazarr**      | Subtitle management        | 6767                 |
-| **Lidarr**      | Music management           | 8686                 |
 | **Jellyseerr**  | Media request management   | 5055                 |
 | **Prowlarr**    | Indexer management         | 9696                 |
 | **qBittorrent** | Torrent client             | 8080                 |
 | **HandBrake**   | Video transcoding (web UI) | 5800                 |
-| **Pi-hole**     | DNS ad blocker             | host mode (80, 8089) |
-| **Backrest**    | Backup management (restic) | 9898                 |
-| **Uptime Kuma** | Status monitoring          | 3001                 |
-| **Scrutiny**    | Disk S.M.A.R.T. monitoring | 8079                 |
-| **Seafile**     | File sync & share          | 8082                 |
+
+These eight are one Komodo stack, which is to say one compose project (`mediastack`). They stay together because they are the only group that still interacts — and they reach each other over published host ports, not compose service DNS, which is what makes the project splittable at all.
+
+### Infrastructure Stack (`stacks/infrastructure.yml`)
+
+| Service         | Description                    | Port                 |
+| --------------- | ------------------------------ | -------------------- |
+| **Pi-hole**     | DNS ad blocker                 | host mode (80, 8089) |
+| **Uptime Kuma** | Status monitoring              | 3001                 |
+| **Scrutiny**    | Disk S.M.A.R.T. monitoring     | 8079                 |
+
+Kept out of `mediastack` on purpose: Pi-hole going down kills LAN DNS *including for whatever is being deployed*, and losing monitoring at the same time as what it monitors hides the breakage.
+
+### Backrest Stack (`stacks/backrest.yml`)
+
+| Service      | Description                | Port  |
+| ------------ | -------------------------- | ----- |
+| **Backrest** | Backup management (restic) | 9898  |
+
+Its own project with `restart: "no"`, and its start is gated on the backup drive actually being mounted by `backrest-guard.service` — see the header in `stacks/backrest.yml` for why that check has to live on the host.
+
+### Seafile Stack (`stacks/seafile.yml`)
+
+| Service              | Description              | Port                 |
+| -------------------- | ------------------------ | -------------------- |
+| **Seafile**          | File sync & share        | 8082                 |
+| **Seafile MariaDB**  | Database                 | internal             |
+| **Seafile Memcached** | Cache                  | internal             |
+
+Split out of the main stack as its own compose project: nothing outside the trio talks to it over compose service DNS, and the floating `seafileltd/seafile-mc:latest` tag should not be able to take the `*arr` chain down with it. The three must stay together — they are coupled by name (`DB_HOST=seafile-mysql`, the `memcached` alias). When cutting over, deploy the main stack first so its `--remove-orphans` reaps the old containers; a new project cannot start while same-named containers exist.
 
 ### Homepage Stack (`stacks/homepage.yml`)
 
@@ -501,7 +525,8 @@ sudo docker compose -f $D/docker-compose.yml --env-file $D/stack.env up -d <serv
 │   ├── extract-subs.sh        # ASS/SSA to SRT subtitle extractor for Radarr/Sonarr
 │   └── install-ffmpeg.sh      # ffmpeg installer for LinuxServer containers
 ├── stacks/
-│   ├── docker-compose.yml     # Main stack (Jellyfin, *arr, backrest, etc.)
+│   ├── docker-compose.yml     # Main media stack (Jellyfin, *arr, downloads)
+│   ├── seafile.yml            # Seafile + MariaDB + Memcached
 │   ├── homepage.yml           # Homepage dashboard + Glances metrics stack
 │   └── immich.yml             # Immich photo management stack
 ├── .env.example               # Environment variable template

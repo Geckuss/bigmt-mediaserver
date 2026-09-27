@@ -162,7 +162,7 @@ Target layout (15 services → 6 projects):
 | `downloads` | qbittorrent, radarr, sonarr, prowlarr, bazarr, jellyseerr, handbrake | One coupling unit: shared `${DATA}`, PUID/PGID/TZ, the `extract-subs.sh` + `install-ffmpeg.sh` mounts, and qBittorrent as the shared download client. They reach each other over published host ports, so this grouping is about *reconfiguration cadence*, not networking. |
 | `jellyfin` | jellyfin | Host networking + GPU + the most user-visible service. Its own project means a Jellyfin reconfigure or rescan can never touch the `*arr` chain. |
 | `pihole` | pihole | Fully independent. A pihole restart mid-deploy kills LAN DNS resolution *including for the deploy itself*. Keep it out of every other project. |
-| `seafile` | seafile, seafile-mysql, seafile-memcached | Inseparable: `depends_on`, `DB_HOST=seafile-mysql`, the `memcached` network alias. Do not split. |
+| `seafile` | seafile, seafile-mysql, seafile-memcached | Inseparable **as a trio**: `depends_on`, `DB_HOST=seafile-mysql`, the `memcached` network alias. Do not split them across projects. Keeping the trio as its own project from the rest is a different matter, and is what actually happened — see `stacks/seafile.yml`. |
 | `backrest` | backrest | The safety net must not be restartable by a workload deploy. |
 | `observability` | uptime-kuma, scrutiny, **glances** (moved from `homepage`) | Your monitoring must not go down in the same `up -d` as what it monitors. Glances moves here — Homepage reaches it via `host.docker.internal:61208`, not compose DNS, so the coupling is already nil. |
 
@@ -174,7 +174,7 @@ Steps:
 1. Add `stacks/downloads.yml`, `stacks/jellyfin.yml`, `stacks/pihole.yml`, `stacks/seafile.yml`, `stacks/backrest.yml`, `stacks/observability.yml` to the repo; strip `mediastack` down or delete `stacks/docker-compose.yml` once the split is verified.
 2. Pin the two anonymous volumes to bind mounts under `${CONFIGS}` while you're in there (`handbrake:/trash`, `vocard-db:/data/configdb`).
 3. Create the 6 new Stacks, `project_name` = Stack name (new projects, so nothing to adopt — expect full container recreates, that's intended).
-4. Order the cutover so the observers go up **first**: `observability`, then `downloads`, `jellyfin`, `seafile`, then `backrest` last, then destroy the old `mediastack` project.
+4. Order the cutover so the observers go up **first**: `observability`, then `downloads`, `jellyfin`, `seafile`, then `backrest` last, then destroy the old `mediastack` project. **A new project cannot start while the old containers with the same names still exist** — all of them set an explicit `container_name`, so a new project's `up` fails with *name already in use*. Deploy the stack the services are leaving **first** (with `--remove-orphans` to reap them), then the one they are joining.
 5. Watch pihole: expect a few seconds of DNS interruption. Do it from a session that uses a raw IP, not a hostname.
 6. `homepage` loses `glances` — remove the `network_mode: host` service and confirm the Glances tile in `configs/homepage-config/widgets.yaml` still points at `host.docker.internal:61208`.
 

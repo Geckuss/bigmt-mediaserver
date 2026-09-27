@@ -65,9 +65,9 @@ Never edit the files under `/etc/komodo/stacks/` by hand — the next deploy ove
 
 ## Docker Stacks
 
-Eight Komodo stacks, each one compose project. They are split so a workload deploy cannot take out LAN DNS, monitoring, or the backup net.
+Nine Komodo stacks, each one compose project. They are split so a workload deploy cannot take out LAN DNS, monitoring, or the backup net.
 
-### mediastack (11)
+### mediastack (8)
 
 | Service | Port |
 |---------|------|
@@ -79,11 +79,22 @@ Eight Komodo stacks, each one compose project. They are split so a workload depl
 | Prowlarr | 9696 |
 | qBittorrent | 8080 |
 | HandBrake | 5800 |
+
+These reach each other over published host ports, not compose service DNS, which is what makes the group splittable at all.
+
+### seafile (3) — own project
+
+| Service | Port |
+|---------|------|
 | Seafile | 8082 |
-| Seafile MariaDB | internal |
+| Seafile MariaDB | internal (`DB_HOST=seafile-mysql`) |
 | Seafile Memcached | internal (alias: `memcached`) |
 
-The only genuinely-coupled group: the `*arr` chain plus the seafile trio, which is the only part using compose service DNS (`DB_HOST=seafile-mysql`, the `memcached` alias). The `*arr` apps reach each other over published host ports, which is why they can be split further if ever needed.
+Split out of mediastack: nothing outside the trio ever used compose service DNS, so it was only a guest there. Its `seafileltd/seafile-mc:latest` tag is floating, and one bad pull should not be able to take Radarr and Sonarr down with it.
+
+The three stay together and must stay in `stacks/seafile.yml` — they are coupled by name (`DB_HOST`, the `memcached` alias referenced from `seahub_settings.py`). Moving them to different projects would mean publishing those ports and pointing the config at a host.
+
+**Cutover order is not optional:** all three have a fixed `container_name`, so the new project cannot start while the old containers exist. Deploy `mediastack` first (its `--remove-orphans` reaps them), then `seafile`. State is in bind mounts under `${CONFIGS}` and survives; expect ~1min down.
 
 ### infrastructure (3)
 

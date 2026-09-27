@@ -1,3 +1,15 @@
+# Media: the *arr chain plus Jellyfin, qBittorrent and HandBrake. They reach
+# each other over published host ports, not compose DNS, which is what makes
+# this group splittable at all.
+#
+# seafile used to live here and now has its own project (stacks/seafile.yml).
+# It was only ever a guest: its MariaDB and Memcached are used by service name
+# from inside the trio, and the reverse proxy reaches it on host port 8082.
+#
+# CUTOVER ORDER: the first deploy of this file after the split reaps the three
+# seafile containers via --remove-orphans. stacks/seafile.yml cannot start
+# before that happens (fixed container_name), so deploy this one first.
+
 services:
   jellyfin:
     image: jellyfin/jellyfin
@@ -128,44 +140,3 @@ services:
       - ${DATA}/downloads/handbrake/input:/watch:rw
       - ${DATA}/downloads/handbrake/output:/output:rw
     restart: unless-stopped
-
-  seafile-mysql:
-    image: mariadb:10.11
-    container_name: seafile-mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=${SEAFILE_MYSQL_ROOT_PASSWORD}
-      - MYSQL_LOG_CONSOLE=true
-    volumes:
-      - ${CONFIGS}/seafile-mysql:/var/lib/mysql
-    restart: unless-stopped
-
-  seafile-memcached:
-    image: memcached:1.6
-    container_name: seafile-memcached
-    entrypoint: memcached -m 256
-    networks:
-      default:
-        aliases:
-          - memcached
-    restart: unless-stopped
-
-  seafile:
-    image: seafileltd/seafile-mc:latest
-    container_name: seafile
-    ports:
-      - ${SEAFILE_PORT:-8082}:80
-    volumes:
-      - ${CONFIGS}/seafile-data:/shared
-    environment:
-      - DB_HOST=seafile-mysql
-      - DB_ROOT_PASSWD=${SEAFILE_MYSQL_ROOT_PASSWORD}
-      - SEAFILE_ADMIN_EMAIL=${SEAFILE_ADMIN_EMAIL}
-      - SEAFILE_ADMIN_PASSWORD=${SEAFILE_ADMIN_PASSWORD}
-      - SEAFILE_SERVER_HOSTNAME=${SEAFILE_HOSTNAME:-seafile.example.com}
-      - TZ=${TZ:-Europe/Helsinki}
-    depends_on:
-      - seafile-mysql
-      - seafile-memcached
-    restart: unless-stopped
-
-
