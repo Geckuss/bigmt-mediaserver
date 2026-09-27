@@ -3,10 +3,12 @@
 #
 #   pihole        LAN DNS. If this is down, name resolution dies for everything
 #                 including whatever you are currently deploying.
-#   backrest      the safety net. Should not restart alongside the workloads it
-#                 is meant to rescue.
 #   uptime-kuma   monitoring. Down exactly when you need to see what broke.
 #   scrutiny      disk SMART on the two 7.3T data drives.
+#
+# backrest also used to live here but has its own project (stacks/backrest.yml),
+# because its backup drives are only present sometimes and its start has to be
+# gated on the mount by a host-side script.
 #
 # Deploy order matters: after moving these out of mediastack, deploy
 # docker-compose.yml FIRST (it removes them from that project), then this one.
@@ -33,33 +35,6 @@ services:
       - ${UPTIME_KUMA_PORT:-3001}:3001
     volumes:
       - ${CONFIGS}/uptime-kuma:/app/data
-    restart: unless-stopped
-
-  backrest:
-    image: garethgeorge/backrest:latest
-    container_name: backrest
-    hostname: backrest
-    ports:
-      - ${BACKREST_PORT:-9898}:9898
-    volumes:
-      - ${CONFIGS}/backrest/data:/data
-      - ${CONFIGS}/backrest/config:/config
-      - ${CONFIGS}/backrest/cache:/cache
-      # Sources (read-only)
-      - ${CONFIGS}:/userdata/configs:ro
-      - ${UPLOAD_LOCATION}:/userdata/immich-uploads:ro
-      - ${DATA}/media:/userdata/media:ro
-      # Backup drives. The mount points exist even when the drives are
-      # unplugged, so the container always sees a writable directory here.
-      # That is a hazard on its own: restic would happily init a brand new
-      # empty repo on the root SSD. See agents.md, "Backup drives", for the
-      # mountpoint guard that prevents it.
-      - /mnt/backup-5tb:/repos/primary
-      - /mnt/backup-1tb:/repos/secondary
-    environment:
-      - BACKREST_DATA=/data
-      - BACKREST_CONFIG=/config/config.json
-      - XDG_CACHE_HOME=/cache
     restart: unless-stopped
 
   scrutiny:

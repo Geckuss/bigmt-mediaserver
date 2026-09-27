@@ -1,0 +1,45 @@
+# Backrest, in its own project on purpose.
+#
+# The backup drives are only plugged in when needed, and their host mount
+# points always exist. That means an unplugged drive looks to the container
+# like an empty but writable directory, and restic will happily `init` a
+# brand new empty repo there -- on the 172G root SSD -- and then report every
+# plan as successful. Silent, and it is exactly the failure this project
+# split exists to prevent.
+#
+# The guard therefore lives on the host, because a container-side check
+# cannot work: the bind mount makes the path look mounted from inside, and
+# Docker auto-creates missing bind sources.
+#
+# Lifecycle is owned by the host, not by Docker:
+#   restart: "no"                  Docker never auto-starts it (so not on boot)
+#   pre_deploy: mountpoint check   Komodo refuses to deploy with the drive out
+#   backrest-guard.service         starts it at boot, but only if it is mounted
+#
+# After plugging a drive in:  sudo systemctl start backrest-guard
+
+services:
+  backrest:
+    image: garethgeorge/backrest:latest
+    container_name: backrest
+    hostname: backrest
+    # Intentionally NOT "unless-stopped": the guard owns this lifecycle.
+    restart: "no"
+    ports:
+      - ${BACKREST_PORT:-9898}:9898
+    volumes:
+      - ${CONFIGS}/backrest/data:/data
+      - ${CONFIGS}/backrest/config:/config
+      - ${CONFIGS}/backrest/cache:/cache
+      # Sources (read-only)
+      - ${CONFIGS}:/userdata/configs:ro
+      - ${UPLOAD_LOCATION}:/userdata/immich-uploads:ro
+      - ${DATA}/media:/userdata/media:ro
+      # Backup drives. Host mount points exist even when unplugged -- see the
+      # warning above. primary = 5TB, secondary = 1TB (not always connected).
+      - /mnt/backup-5tb:/repos/primary
+      - /mnt/backup-1tb:/repos/secondary
+    environment:
+      - BACKREST_DATA=/data
+      - BACKREST_CONFIG=/config/config.json
+      - XDG_CACHE_HOME=/cache
