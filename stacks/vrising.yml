@@ -19,6 +19,10 @@ services:
       # game + query ports are UDP (cannot be reverse-proxied via Caddy HTTP)
       - ${VRISING_GAME_PORT:-9878}:9876/udp
       - ${VRISING_QUERY_PORT:-9879}:9877/udp
+    # Parity with valheim. The world is 254MB and autosaves every few seconds;
+    # a 10s default SIGTERM can land mid-write and corrupt the latest save.
+    # Older autosaves stay on disk, and ${CONFIGS} is covered by Backrest.
+    stop_grace_period: 120s
     restart: unless-stopped
 
 # Build the image on the host (binaries that the build needs are not in git):
