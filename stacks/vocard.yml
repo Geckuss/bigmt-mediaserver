@@ -58,8 +58,13 @@ services:
         condition: service_healthy
       lavalink:
         condition: service_started
-    image: vocard:beta
-    pull_policy: never
+    # Was built locally as vocard:beta (v2.7.3b3) to get a Voicelink fix for
+    # Lavalink 4.2.x ahead of a stable release. v2.7.3 shipped 2026-05-09 and
+    # includes the Voicelink refactor, so the local build is redundant.
+    # Pinned rather than :latest, so the tag always says what is running.
+    # Lavalink is a separate service below, which is what 2.7.3 now expects:
+    # it dropped the bundled Docker-based Lavalink setup.
+    image: ghcr.io/chocomeow/vocard:v2.7.3
     networks:
       - vocard
     restart: unless-stopped
