@@ -31,15 +31,16 @@ value = "Europe/Helsinki"
 name = "bigmt"
 description = "main mediaserver: docker host for every stack"
 tags = ["prod"]
-enabled = true
   [server.config]
+  # MUST live inside [server.config]. At the [[server]] level it is parsed as
+  # an unknown top-level key and silently dropped, which would leave the
+  # server disabled and Periphery unmanaged.
+  enabled = true
   # Outbound Periphery dials this address. It is the tailnet URL rather than
   # komodo.bigmt.top on purpose: Periphery keeps working when oci, Caddy or the
   # internet is down, and avoids a hairpin on every command.
   address = "http://bigmt.tahr-fort.ts.net:9120"
   region = "Helsinki"
-  tags = ["prod"]
-  internet_interface = "tailscale0"
 
 # --- stacks -------------------------------------------------------------------
 #
@@ -65,15 +66,16 @@ tags = ["prod", "media"]
   # between stacks.
   extra_args = ["--remove-orphans"]
   poll_for_updates = true
+  links = ["https://jellyfin.bigmt.top", "https://radarr.bigmt.top", "https://sonarr.bigmt.top", "https://qbittorrent.bigmt.top", "https://seafile.bigmt.top"]
   environment = """
-    DATA = [[DATA]]
-    CONFIGS = [[CONFIGS]]
-    TZ = [[TZ]]
-    UPLOAD_LOCATION = /data/media/gallery
-    SEAFILE_HOSTNAME = seafile.bigmt.top
-    SEAFILE_ADMIN_EMAIL = <redacted>
-    SEAFILE_MYSQL_ROOT_PASSWORD = [[SEAFILE_DB_PASSWORD]]
-    SEAFILE_ADMIN_PASSWORD = [[SEAFILE_ADMIN_PASSWORD]]
+DATA = [[DATA]]
+CONFIGS = [[CONFIGS]]
+TZ = [[TZ]]
+UPLOAD_LOCATION = /data/media/gallery
+SEAFILE_HOSTNAME = seafile.bigmt.top
+SEAFILE_ADMIN_EMAIL = <redacted>
+SEAFILE_MYSQL_ROOT_PASSWORD = [[SEAFILE_DB_PASSWORD]]
+SEAFILE_ADMIN_PASSWORD = [[SEAFILE_ADMIN_PASSWORD]]
   """
 
 [[stack]]
@@ -82,15 +84,16 @@ description = "pihole, uptime-kuma, scrutiny - kept out of mediastack on purpose
 tags = ["prod", "infra"]
   [stack.config]
   server = "bigmt"
+  links = ["https://pihole.bigmt.top", "https://uptime.bigmt.top", "https://scrutiny.bigmt.top"]
   repo = "Geckuss/bigmt-mediaserver"
   branch = "master"
   file_paths = ["stacks/infrastructure.yml"]
   poll_for_updates = true
   environment = """
-    DATA = [[DATA]]
-    CONFIGS = [[CONFIGS]]
-    TZ = [[TZ]]
-    UPLOAD_LOCATION = /data/media/gallery
+DATA = [[DATA]]
+CONFIGS = [[CONFIGS]]
+TZ = [[TZ]]
+UPLOAD_LOCATION = /data/media/gallery
   """
 
 [[stack]]
@@ -99,15 +102,16 @@ description = "own project: start is gated on the backup drive being mounted"
 tags = ["prod", "backup"]
   [stack.config]
   server = "bigmt"
+  links = ["https://backrest.bigmt.top"]
   repo = "Geckuss/bigmt-mediaserver"
   branch = "master"
   file_paths = ["stacks/backrest.yml"]
   poll_for_updates = true
   environment = """
-    DATA = [[DATA]]
-    CONFIGS = [[CONFIGS]]
-    TZ = [[TZ]]
-    UPLOAD_LOCATION = /data/media/gallery
+DATA = [[DATA]]
+CONFIGS = [[CONFIGS]]
+TZ = [[TZ]]
+UPLOAD_LOCATION = /data/media/gallery
   """
 
 [[stack]]
@@ -122,11 +126,11 @@ tags = ["prod", "infra"]
   poll_for_updates = true
   links = ["https://bigmt.top"]
   environment = """
-    DATA = [[DATA]]
-    CONFIGS = [[CONFIGS]]
-    TZ = [[TZ]]
-    HOMEPAGE_PORT = 3000
-    HOMEPAGE_ALLOWED_HOSTS = *
+DATA = [[DATA]]
+CONFIGS = [[CONFIGS]]
+TZ = [[TZ]]
+HOMEPAGE_PORT = 3000
+HOMEPAGE_ALLOWED_HOSTS = *
   """
 
 [[stack]]
@@ -141,11 +145,11 @@ tags = ["prod", "photos"]
   poll_for_updates = true
   links = ["https://immich.bigmt.top"]
   environment = """
-    UPLOAD_LOCATION = /data/media/gallery
-    DB_DATA_LOCATION = /data/backups/configs/immich-config/postgres
-    DB_PASSWORD = [[IMMICH_DB_PASSWORD]]
-    DB_USERNAME = postgres
-    DB_DATABASE_NAME = immich
+UPLOAD_LOCATION = /data/media/gallery
+DB_DATA_LOCATION = /data/backups/configs/immich-config/postgres
+DB_PASSWORD = [[IMMICH_DB_PASSWORD]]
+DB_USERNAME = postgres
+DB_DATABASE_NAME = immich
   """
 
 # --- the sync itself ---------------------------------------------------------
