@@ -165,6 +165,27 @@ DB_DATABASE_NAME = immich
   """
 
 [[stack]]
+name = "vocard"
+description = "Discord music bot, with its own Lavalink, yt-cipher and spotify-tokener"
+tags = ["prod", "bot"]
+  [stack.config]
+  server = "bigmt"
+  links = ["https://seraphine.bigmt.top"]
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  file_paths = ["stacks/vocard.yml"]
+  # Pinned image, no pull on deploy: the bot's version should be a deliberate
+  # bump, not whatever was published that morning. First deploy pulls because
+  # the image is absent locally, later deploys reuse it.
+  auto_pull = false
+  poll_for_updates = true
+  # Bumps the Lavalink plugin jars in ${CONFIGS} after each deploy.
+  environment = """
+CONFIGS = [[CONFIGS]]
+TZ = [[TZ]]
+"""
+
+[[stack]]
 name = "vrising"
 description = "V Rising, BepInEx modded, from a locally built image"
 tags = ["prod", "games"]

@@ -96,3 +96,7 @@ services:
     restart: unless-stopped
     volumes:
       - ${CONFIGS}/vocard/mongodb_data:/data/db
+      # mongo's image declares VOLUME /data/configdb. Without an explicit mount
+      # here it becomes an anonymous volume, and recreating this container
+      # orphans it and starts a fresh one. Upstream pins this too.
+      - ${CONFIGS}/vocard/mongodb_conf:/data/configdb
