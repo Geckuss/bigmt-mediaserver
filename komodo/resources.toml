@@ -159,6 +159,52 @@ DB_USERNAME = postgres
 DB_DATABASE_NAME = immich
   """
 
+[[stack]]
+name = "vrising"
+description = "V Rising, BepInEx modded, from a locally built image"
+tags = ["prod", "games"]
+  [stack.config]
+  server = "bigmt"
+  links = []
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  file_paths = ["stacks/vrising.yml"]
+  # The image is built on the host from configs/vrising/Dockerfile and exists
+  # in no registry, so auto_pull would fail outright. Nothing to poll either.
+  auto_pull = false
+  auto_update = false
+  poll_for_updates = false
+  environment = """
+CONFIGS = [[CONFIGS]]
+TZ = [[TZ]]
+"""
+
+[[stack]]
+name = "valheim"
+description = "Valheim, BepInEx modded"
+tags = ["prod", "games"]
+  [stack.config]
+  server = "bigmt"
+  links = []
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  file_paths = ["stacks/valheim.yml"]
+  poll_for_updates = true
+  environment = """
+CONFIGS = [[CONFIGS]]
+TZ = [[TZ]]
+# These four come from Portainer's stack.env, NOT from the compose file, whose
+# defaults are WORLD_REDACTED/2456/2457. Leaving them out would silently switch
+# the server to a different world on the first deploy.
+VALHEIM_SERVER_NAME = WORLD_REDACTED
+VALHEIM_WORLD_NAME = WORLD_REDACTED
+VALHEIM_GAME_PORT = 2456
+VALHEIM_QUERY_PORT = 2457
+VALHEIM_SERVER_PASS = [[VALHEIM_SERVER_PASS]]
+# A SteamID, so treated as a secret rather than committed.
+VALHEIM_ADMINLIST_IDS = [[VALHEIM_ADMINLIST_IDS]]
+"""
+
 # --- the sync itself ---------------------------------------------------------
 #
 # Deliberately NOT declared as a [[resource_sync]] block here. This file is
