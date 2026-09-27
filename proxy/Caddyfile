@@ -14,6 +14,13 @@
     }
 }
 
+(private_only) {
+    @not_private not remote_ip 100.64.0.0/10 86.50.78.255/32
+    route @not_private {
+        respond "Forbidden" 403
+    }
+}
+
 bigmt.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:3000
@@ -46,8 +53,15 @@ prowlarr.example.com {
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9696
 }
 portainer.example.com {
+    import private_only
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9000
+}
+komodo.example.com {
+    # Management UI + holds every stack's resource definitions. Tailscale only.
+    import private_only
+    import security_headers
+    reverse_proxy http://<TAILSCALE_HOSTNAME>:9120
 }
 cockpit.example.com {
     import security_headers

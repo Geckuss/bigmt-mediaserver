@@ -1,0 +1,90 @@
+# Komodo Core + its MongoDB state store.
+#
+# Deliberately NOT managed by Komodo (bootstrapping chicken-and-egg, and the
+# bulk container operations would target it). Deploy it by hand:
+#
+#   cd /data/backups/configs/komodo && docker compose -p komodo -f <path>/stacks/komodo.yml up -d
+#
+# Periphery is NOT here: on bigmt it runs as a systemd service, which is the
+# documented best practice (a containerised Periphery gives you a shell inside
+# the Periphery container instead of the host, and wrong network stats).
+#
+# Secrets live in two root-only files under ${KOMODO_CONFIGS} (chmod 600), both
+# covered by Backrest because they sit under ${CONFIGS}:
+#   compose.env       -> mongo root credentials
+#   core.config.toml  -> Komodo secrets, jwt/webhook secrets, db credentials
+# Neither is ever committed.
+
+services:
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    # Prevent Komodo's StopAllContainers / RestartAllContainers from killing
+    # its own state store.
+    labels:
+      komodo.skip:
+    command: --quiet --wiredTigerCacheSizeGB 0.25
+    env_file:
+      - ${KOMODO_CONFIGS}/compose.env
+    volumes:
+      - ${KOMODO_CONFIGS}/mongo/data:/data/db
+      - ${KOMODO_CONFIGS}/mongo/configdb:/data/configdb
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  core:
+    # Pin past CVE-2026-82267 (<= 2.3.2 wrote audit entries before authz).
+    # Use :2 to track the v2 line, never :latest (deprecated since v2).
+    image: ghcr.io/moghtech/komodo-core:2.3.3
+    init: true
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    labels:
+      komodo.skip:
+    ports:
+      # Bound on all interfaces but only reachable over Tailscale, because
+      # komodo.bigmt.top is gated by Caddy's (private_only) snippet on oci.
+      - ${KOMODO_PORT:-9120}:9120
+    environment:
+      KOMODO_DATABASE_ADDRESS: mongo:27017
+      # Host name the UI and generated webhooks use. Caddy must forward
+      # X-Forwarded-Host (it does by default).
+      KOMODO_HOST: ${KOMODO_HOST}
+      KOMODO_TITLE: ${KOMODO_TITLE:-Komodo}
+      KOMODO_LOCAL_AUTH: "true"
+      # Single-admin box: no self-service accounts, no non-admin resource creation.
+      KOMODO_DISABLE_USER_REGISTRATION: "true"
+      KOMODO_ENABLE_NEW_USERS: "false"
+      KOMODO_DISABLE_NON_ADMIN_CREATE: "true"
+      KOMODO_MONITORING_INTERVAL: 30-sec
+    volumes:
+      # Core <-> Periphery noise-protocol keys
+      - ${KOMODO_CONFIGS}/keys:/config/keys
+      # Dated Core database backups (Komodo keeps 14; Backrest keeps the folder)
+      - ${KOMODO_CONFIGS}/backups:/backups
+      # Root-only: db credentials, jwt/webhook secrets, [secrets] block
+      - ${KOMODO_CONFIGS}/core.config.toml:/config/config.toml:ro
+    healthcheck:
+      # /version is the only cheap unauthenticated endpoint that returns 200
+      # (/health and /healthz do not exist in v2).
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:9120/version || exit 1" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

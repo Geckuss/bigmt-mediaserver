@@ -1,0 +1,52 @@
+# Komodo resource declarations. This file is the source of truth for Komodo
+# resources; the UI is locked read-only once this is authoritative
+# (ui_write_disabled), so nothing can drift from git.
+#
+# Only NON-SECRET values belong here. Real credentials live in the root-only
+# core.config.toml [secrets] block on the host, or in the per-stack env files
+# under ${CONFIGS}/secrets/. See the secrets section of agents.md.
+
+[[variable]]
+name = "DATA"
+value = "/data"
+
+[[variable]]
+name = "CONFIGS"
+value = "/data/backups/configs"
+
+[[variable]]
+name = "KOMODO_CONFIGS"
+value = "/data/backups/configs/komodo"
+
+# --- bigmt -------------------------------------------------------------------
+
+[[server]]
+name = "bigmt"
+description = "main mediaserver: docker host for every stack"
+tags = ["prod"]
+enabled = true
+  [server.config]
+  # Outbound Periphery dials this address. It is the tailnet URL rather than
+  # komodo.bigmt.top on purpose: Periphery keeps working when oci, Caddy or the
+  # internet is down, and avoids a hairpin on every command.
+  address = "http://bigmt.tahr-fort.ts.net:9120"
+  region = "Helsinki"
+  tags = ["prod"]
+  internet_interface = "tailscale0"
+
+# --- sync --------------------------------------------------------------------
+
+[[resource_sync]]
+name = "bigmt"
+description = "server + variables for the bigmt host"
+tags = ["prod"]
+  [resource_sync.config]
+  git_provider = "github.com"
+  # public repo: no git_account, so no token is ever written to .git/config
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  resource_path = ["komodo/resources.toml"]
+  # Start conservative. Flip delete_unmatched on only after everything is stable,
+  # otherwise a bad sync can delete resources it simply failed to parse.
+  delete_unmatched = false
+  ui_write_disabled = false
