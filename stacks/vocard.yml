@@ -18,12 +18,16 @@ services:
     # Without this, vocard races the node: it connects at t+0, Lavalink is only
     # listening at ~t+4, and v2.7.3 does not retry. The bot then sits there
     # unable to play anything while looking perfectly healthy in the UI.
+    # Uses bash /dev/tcp rather than `nc -z`: the Lavalink image has no netcat,
+    # which would make the check fail forever and block vocard on
+    # service_healthy. A TCP connect is also the right test - it is precisely
+    # what vocard's node client needs.
     healthcheck:
-      test: [ "CMD-SHELL", "nc -z localhost 2333 || exit 1" ]
+      test: [ "CMD-SHELL", "timeout 3 bash -c 'exec 3<>/dev/tcp/127.0.0.1/2333' || exit 1" ]
       interval: 5s
-      timeout: 3s
+      timeout: 4s
       retries: 12
-      start_period: 20s
+      start_period: 15s
     volumes:
       - ${CONFIGS}/vocard/lavalink/application.yml:/opt/Lavalink/application.yml
       - ${CONFIGS}/vocard/lavalink/plugins:/opt/Lavalink/plugins
