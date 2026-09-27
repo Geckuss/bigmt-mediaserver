@@ -36,10 +36,11 @@ tags = ["prod"]
   # an unknown top-level key and silently dropped, which would leave the
   # server disabled and Periphery unmanaged.
   enabled = true
-  # Outbound Periphery dials this address. It is the tailnet URL rather than
-  # komodo.bigmt.top on purpose: Periphery keeps working when oci, Caddy or the
-  # internet is down, and avoids a hairpin on every command.
-  address = "http://bigmt.tahr-fort.ts.net:9120"
+  # address MUST stay unset. It is the address CORE dials to reach Periphery,
+  # so setting it flips the server into inbound mode and Core then tries to
+  # connect to Periphery itself. This host runs Periphery in outbound mode:
+  # Periphery dials Core, and that dial target lives in Periphery's own
+  # /etc/komodo/periphery.config.toml as core_addresses, not here.
   region = "Helsinki"
 
 # --- stacks -------------------------------------------------------------------
