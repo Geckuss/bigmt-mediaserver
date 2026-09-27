@@ -34,6 +34,114 @@ enabled = true
   tags = ["prod"]
   internet_interface = "tailscale0"
 
+# --- stacks -------------------------------------------------------------------
+#
+# Only stacks Komodo actually manages are declared here: the sync CREATES
+# anything it finds, so listing an unmigrated stack would spawn an empty one.
+# Still to migrate: vocard, valheim, v_rising.
+#
+# project_name is deliberately left empty everywhere, so it defaults to the
+# stack name and adopts the running compose project instead of recreating it.
+# Leave it that way unless you also stop the old project by hand.
+
+[[stack]]
+name = "mediastack"
+description = "the 11 *arr + seafile services that actually interact"
+tags = ["prod", "media"]
+  [stack.config]
+  server = "bigmt"
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  file_paths = ["stacks/docker-compose.yml"]
+  # Required: compose does NOT remove services dropped from the file without
+  # this flag, it only reports them as orphans. Needed when moving services
+  # between stacks.
+  extra_args = ["--remove-orphans"]
+  poll_for_updates = true
+  environment = """
+    DATA = [[DATA]]
+    CONFIGS = [[CONFIGS]]
+    TZ = [[TZ]]
+    UPLOAD_LOCATION = /data/media/gallery
+    SEAFILE_HOSTNAME = seafile.bigmt.top
+    SEAFILE_ADMIN_EMAIL = <redacted>
+    SEAFILE_MYSQL_ROOT_PASSWORD = [[SEAFILE_DB_PASSWORD]]
+    SEAFILE_ADMIN_PASSWORD = [[SEAFILE_ADMIN_PASSWORD]]
+  """
+
+[[stack]]
+name = "infrastructure"
+description = "pihole, uptime-kuma, scrutiny - kept out of mediastack on purpose"
+tags = ["prod", "infra"]
+  [stack.config]
+  server = "bigmt"
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  file_paths = ["stacks/infrastructure.yml"]
+  poll_for_updates = true
+  environment = """
+    DATA = [[DATA]]
+    CONFIGS = [[CONFIGS]]
+    TZ = [[TZ]]
+    UPLOAD_LOCATION = /data/media/gallery
+  """
+
+[[stack]]
+name = "backrest"
+description = "own project: start is gated on the backup drive being mounted"
+tags = ["prod", "backup"]
+  [stack.config]
+  server = "bigmt"
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  file_paths = ["stacks/backrest.yml"]
+  poll_for_updates = true
+  environment = """
+    DATA = [[DATA]]
+    CONFIGS = [[CONFIGS]]
+    TZ = [[TZ]]
+    UPLOAD_LOCATION = /data/media/gallery
+  """
+
+[[stack]]
+name = "homepage"
+description = "dashboard + host metrics"
+tags = ["prod", "infra"]
+  [stack.config]
+  server = "bigmt"
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  file_paths = ["stacks/homepage.yml"]
+  poll_for_updates = true
+  links = ["https://bigmt.top"]
+  environment = """
+    DATA = [[DATA]]
+    CONFIGS = [[CONFIGS]]
+    TZ = [[TZ]]
+    HOMEPAGE_PORT = 3000
+    HOMEPAGE_ALLOWED_HOSTS = *
+  """
+
+[[stack]]
+name = "immich"
+description = "photos: server + ML + valkey + postgres"
+tags = ["prod", "photos"]
+  [stack.config]
+  server = "bigmt"
+  repo = "Geckuss/bigmt-mediaserver"
+  branch = "master"
+  file_paths = ["stacks/immich.yml"]
+  poll_for_updates = true
+  links = ["https://immich.bigmt.top"]
+  environment = """
+    UPLOAD_LOCATION = /data/media/gallery
+    DB_DATA_LOCATION = /data/backups/configs/immich-config/postgres
+    DB_PASSWORD = [[IMMICH_DB_PASSWORD]]
+    DB_USERNAME = postgres
+    DB_DATABASE_NAME = immich
+  """
+
+
 # --- sync --------------------------------------------------------------------
 
 [[resource_sync]]
