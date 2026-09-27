@@ -95,6 +95,12 @@ DATA = [[DATA]]
 CONFIGS = [[CONFIGS]]
 TZ = [[TZ]]
 UPLOAD_LOCATION = /data/media/gallery
+# Bootstrap only. pihole v6 hashes this into pihole.toml as `pwhash` on first
+# start and then ignores WEBPASSWORD on every start after that, so the live
+# password is the hash already in etc-pihole/pihole.toml, not this value. It
+# is wired up so that rebuilding pihole from scratch cannot come up with NO
+# admin password on the LAN.
+PIHOLE_PASSWORD = [[PIHOLE_PASSWORD]]
   """
 
 [[stack]]
