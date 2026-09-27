@@ -68,7 +68,7 @@ services:
     restart: unless-stopped
 
   jellyseerr:
-    image: ghcr.io/fallenbagel/jellyseerr:latest
+    image: ghcr.io/seerr-team/seerr:latest
     init: true
     container_name: jellyseerr
     environment:
@@ -79,7 +79,7 @@ services:
     volumes:
       - ${CONFIGS}/jellyseerr-config:/app/config
     healthcheck:
-      test: wget --no-verbose --tries=1 --spider http://localhost:5055/api/v1/status || exit 1
+      test: wget --no-verbose --tries=1 --spider http://localhost:5055/api/v1/settings/public || exit 1
       start_period: 20s
       timeout: 3s
       interval: 15s
@@ -226,8 +226,9 @@ services:
       - ${CONFIGS}/scrutiny/config:/opt/scrutiny/config
       - ${CONFIGS}/scrutiny/influxdb:/opt/scrutiny/influxdb
     devices:
+      # sda + sdc are the two 7.3T ST8000VX004 data drives; sdb is the 250GB boot SSD
       - /dev/sda
-      - /dev/sdb
+      - /dev/sdc
     environment:
       - TZ=${TZ:-Europe/Helsinki}
     restart: unless-stopped

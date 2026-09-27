@@ -1,18 +1,26 @@
 services:
-  vrising:
-    image: trueosiris/vrising
-    container_name: vrising
+  # Modded (BepInEx IL2CPP) server. Image is built LOCALLY from
+  # configs/vrising/Dockerfile -- it is not in any registry, so both pull_policy
+  # and Komodo's auto_pull/auto_update must stay off for this stack.
+  vrising-modded:
+    image: vrising-castlelink:latest
+    container_name: vrising-modded
+    pull_policy: never
     environment:
       - TZ=${TZ:-Europe/Helsinki}
-      - SERVERNAME=${VRISING_SERVERNAME:-Manala}
+      - SERVERNAME=${VRISING_SERVERNAME:-Manala-Modded}
       - WORLDNAME=${VRISING_WORLDNAME:-world1}
     volumes:
-      # server files (overwritten on every Steam update)
-      - ${CONFIGS}/vrising/server:/mnt/vrising/server
+      # server files (overwritten on every Steam update; BepInEx is re-injected each boot)
+      - ${CONFIGS}/vrising/modded/server:/mnt/vrising/server
       # world saves + Settings/ (ServerHostSettings.json, ServerGameSettings.json)
-      - ${CONFIGS}/vrising/persistentdata:/mnt/vrising/persistentdata
+      - ${CONFIGS}/vrising/modded/persistentdata:/mnt/vrising/persistentdata
     ports:
       # game + query ports are UDP (cannot be reverse-proxied via Caddy HTTP)
-      - ${VRISING_GAME_PORT:-9876}:9876/udp
-      - ${VRISING_QUERY_PORT:-9877}:9877/udp
+      - ${VRISING_GAME_PORT:-9878}:9876/udp
+      - ${VRISING_QUERY_PORT:-9879}:9877/udp
     restart: unless-stopped
+
+# Build the image on the host (binaries that the build needs are not in git):
+#   docker build -t vrising-castlelink:latest ${CONFIGS}/vrising/wrapper-build
+# Drop mod DLLs into ${CONFIGS}/vrising/modded/server/BepInEx/plugins, then restart.

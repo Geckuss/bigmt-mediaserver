@@ -1,0 +1,31 @@
+services:
+  valheim:
+    image: lloesche/valheim-server
+    container_name: valheim
+    # SYS_NICE lets the server set process priority (recommended by image)
+    cap_add:
+      - SYS_NICE
+    # give the server time to save the world + shut down cleanly
+    stop_grace_period: 120s
+    environment:
+      - TZ=${TZ:-Europe/Helsinki}
+      - SERVER_NAME=${VALHEIM_SERVER_NAME:-WORLD_REDACTED}
+      # world dir name inside worlds_local (the modded world generated on first boot)
+      - WORLD_NAME=${VALHEIM_WORLD_NAME:-WORLD_REDACTED}
+      - SERVER_PASS=${VALHEIM_SERVER_PASS}
+      # admin SteamIDs (space separated) for in-game F1 config edits + admin commands
+      - ADMINLIST_IDS=${VALHEIM_ADMINLIST_IDS:-}
+      # keep the server private (not listed in public community browser)
+      - SERVER_PUBLIC=false
+      # enable BepInEx modding framework (installed on first boot)
+      - BEPINEX=true
+    volumes:
+      # config: server config, adminlist, worlds (config/worlds_local), bepinex/plugins
+      - ${CONFIGS}/valheim/config:/config
+      # data: steam server install + BepInEx runtime (overwritten on updates)
+      - ${CONFIGS}/valheim/data:/opt/valheim
+    ports:
+      # game + query ports are UDP (cannot be reverse-proxied via Caddy HTTP)
+      - ${VALHEIM_GAME_PORT:-2456}:2456/udp
+      - ${VALHEIM_QUERY_PORT:-2457}:2457/udp
+    restart: unless-stopped
