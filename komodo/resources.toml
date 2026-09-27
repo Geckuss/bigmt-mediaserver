@@ -3,8 +3,15 @@
 # (ui_write_disabled), so nothing can drift from git.
 #
 # Only NON-SECRET values belong here. Real credentials live in the root-only
-# core.config.toml [secrets] block on the host, or in the per-stack env files
-# under ${CONFIGS}/secrets/. See the secrets section of agents.md.
+# core.config.toml [secrets] block on the host. See the secrets section of
+# agents.md.
+#
+# Every variable a stack references with [[VAR]] must be declared below, or it
+# is invisible to this file. The secret variables (IMMICH_DB_PASSWORD,
+# SEAFILE_DB_PASSWORD, SEAFILE_ADMIN_PASSWORD) are deliberately NOT declared:
+# they exist in Komodo and the sync must leave them alone. That is what
+# delete_unmatched = false protects -- turning it on would delete all three
+# and break every deploy on an unresolved [[VAR]].
 
 [[variable]]
 name = "DATA"
@@ -15,8 +22,8 @@ name = "CONFIGS"
 value = "/data/backups/configs"
 
 [[variable]]
-name = "KOMODO_CONFIGS"
-value = "/data/backups/configs/komodo"
+name = "TZ"
+value = "Europe/Helsinki"
 
 # --- bigmt -------------------------------------------------------------------
 
@@ -141,20 +148,20 @@ tags = ["prod", "photos"]
     DB_DATABASE_NAME = immich
   """
 
+# --- the sync itself ---------------------------------------------------------
+#
+# Deliberately NOT declared as a [[resource_sync]] block here. This file is
+# read BY that sync, so declaring it would be self-referential. It is created
+# out of band, once, in the Komodo UI or API:
+#
+#   name          bigmt
+#   repo          Geckuss/bigmt-mediaserver
+#   branch        master
+#   resource_path ["komodo/resources.toml"]
+#   delete_unmatched   false   <- keep false; see the note at the top
+#   ui_write_disabled false   <- flip to true once the diffs look boring
+#
+# Because GitHub cannot reach a tailnet-only Core, the sync webhook will never
+# fire. Core polls the repo instead (resource_poll_interval, 1 hour by default),
+# or you run it by hand.
 
-# --- sync --------------------------------------------------------------------
-
-[[resource_sync]]
-name = "bigmt"
-description = "server + variables for the bigmt host"
-tags = ["prod"]
-  [resource_sync.config]
-  git_provider = "github.com"
-  # public repo: no git_account, so no token is ever written to .git/config
-  repo = "Geckuss/bigmt-mediaserver"
-  branch = "master"
-  resource_path = ["komodo/resources.toml"]
-  # Start conservative. Flip delete_unmatched on only after everything is stable,
-  # otherwise a bad sync can delete resources it simply failed to parse.
-  delete_unmatched = false
-  ui_write_disabled = false
