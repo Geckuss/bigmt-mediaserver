@@ -26,24 +26,31 @@
 - **SSH oci**: `ssh oci`
 - **Management**: Portainer (Docker)
 
-## Portainer Stack Files & Hot Deploys
+## Deploys: git is the source of truth
 
-Portainer materializes each stack onto the host under the `portainer_data` volume:
+Every stack is declared in this repo and deployed by **Komodo** from a git clone. There is no host-side compose file to edit any more.
 
-- Main stack compose: `/data/docker/volumes/portainer_data/_data/compose/1/docker-compose.yml`
-- Main stack env: `/data/docker/volumes/portainer_data/_data/compose/1/stack.env`
-- Files are **root-owned** — read/edit with `sudo`. The stack id (`1`) is the number in the Portainer stack URL.
+| | |
+|---|---|
+| Komodo UI | `https://komodo.bigmt.top` (Tailscale only, via Caddy `private_only`) |
+| Compose files (cloned) | `/etc/komodo/stacks/<stack>/` — Periphery's `root_directory` is `/etc/komodo`, so anything outside it is invisible to Komodo |
+| Resource declarations | `komodo/resources.toml`, applied by the `bigmt` Resource Sync |
+| Web UI | `komodo.bigmt.top`, admin creds in `${CONFIGS}/komodo/core.config.toml` (root-only) |
 
-Hot-inject a service change without editing in the UI (back up first, then redeploy only the changed service):
+To change anything:
 
-```bash
-D=/data/docker/volumes/portainer_data/_data/compose/1
-sudo cp $D/docker-compose.yml $D/docker-compose.yml.bak.$(date +%Y%m%d%H%M%S)
-# edit $D/docker-compose.yml with sudo, mirror change into repo stacks/docker-compose.yml
-sudo docker compose -f $D/docker-compose.yml --env-file $D/stack.env up -d <service>
-```
+1. Edit the compose file in `stacks/`, or `komodo/resources.toml` for Komodo's own config.
+2. `git push`.
+3. In Komodo run **`DeployStackIfChanged`** on the stack. It diffs first, so a no-op costs nothing.
 
-Drift caveat: Portainer also keeps the stack body in its DB; the next UI "Update the stack" overwrites file-only edits. Paste the same YAML into the UI once (or use API `PUT /api/stacks/{id}`) to persist. Keep `stacks/docker-compose.yml` in the repo as source of truth.
+Never edit the files under `/etc/komodo/stacks/` by hand — the next deploy overwrites them. Never let Portainer touch a project Komodo owns; two managers on one compose project fight.
+
+**Secrets** are not in git and not in `resources.toml`. The stacks reference `[[VARIABLE]]` names; the values live in Komodo as variables flagged secret, in the Mongo store under `${CONFIGS}/komodo`.
+
+**Two gotchas that cost real time here:**
+
+- Compose does **not** remove a service you delete from the file. It prints `Found orphan containers (...)` and leaves them running. `mediastack` carries `extra_args = ["--remove-orphans"]` for exactly this reason.
+- The Resource Sync is a **partial merge**. It rewrites any field `resources.toml` does not declare, using the schema default, and omitting a field does **not** clear it. Declare `auto_pull = false` explicitly on every stack; the default is `true`, and nearly every image here is a floating tag.
 
 ## Architecture
 
@@ -51,14 +58,16 @@ Drift caveat: Portainer also keeps the stack body in its DB; the next UI "Update
 [Internet] --> [Oracle Cloud / Caddy] --Tailscale--> [bigmt (mediaserver)]
 ```
 
-- **bigmt**: Main mediaserver running all services via Docker/Portainer
+- **bigmt**: Main mediaserver running all services via Docker, managed by Komodo
 - **oci (Oracle Cloud)**: Reverse proxy running Caddy, connected to bigmt over Tailscale
 - **GPU**: NVIDIA GTX 1070 (used by Jellyfin for transcoding, Immich for ML)
 - **DNS**: `*.example.com` → Oracle Cloud public IP → Caddy → bigmt via Tailscale
 
-## Docker Stacks (Portainer)
+## Docker Stacks
 
-### Main Stack
+Eight Komodo stacks, each one compose project. They are split so a workload deploy cannot take out LAN DNS, monitoring, or the backup net.
+
+### mediastack (11)
 
 | Service | Port |
 |---------|------|
@@ -70,15 +79,33 @@ Drift caveat: Portainer also keeps the stack body in its DB; the next UI "Update
 | Prowlarr | 9696 |
 | qBittorrent | 8080 |
 | HandBrake | 5800 |
-| Pi-hole | host mode (80, 8089) |
-| Backrest | 9898 |
 | Seafile | 8082 |
 | Seafile MariaDB | internal |
 | Seafile Memcached | internal (alias: `memcached`) |
+
+The only genuinely-coupled group: the `*arr` chain plus the seafile trio, which is the only part using compose service DNS (`DB_HOST=seafile-mysql`, the `memcached` alias). The `*arr` apps reach each other over published host ports, which is why they can be split further if ever needed.
+
+### infrastructure (3)
+
+| Service | Port |
+|---------|------|
+| Pi-hole | host mode (80, 8089) |
 | Uptime Kuma | 3001 |
 | Scrutiny | 8079 |
 
-### Homepage Stack
+Out of mediastack on purpose: Pi-hole going down kills LAN DNS *including for whatever is being deployed*, and losing monitoring at the same time as what it monitors hides the breakage.
+
+### backrest (1) — own project, gated
+
+Backrest is alone because its drives are only plugged in when needed, and the host-side guard has to own its lifecycle:
+
+- `restart: "no"` — Docker never auto-starts it, not even at boot
+- `backrest-guard.service` runs `/usr/local/sbin/backrest-guard.sh`, which checks `mountpoint -q /mnt/backup-5tb` and starts it only if real
+- after plugging a drive in: `sudo systemctl start backrest-guard`
+
+The guard must be host-side: inside the container the bind mount looks mounted, and Docker auto-creates missing bind sources, so neither a mountpoint test nor a marker file works from in there. Without it, restic inits a brand new empty repo on the root SSD and reports every plan as successful.
+
+### homepage (2)
 
 | Service | Port |
 |---------|------|
@@ -88,9 +115,9 @@ Drift caveat: Portainer also keeps the stack body in its DB; the next UI "Update
 - Homepage is the landing page at `bigmt.*` — app links + service API widgets + system metrics.
 - Glances is the metrics backend. Homepage reads its REST API at `http://host.docker.internal:61208` (Homepage has `host.docker.internal:host-gateway`; Glances runs `network_mode: host`).
 - Glances uses a **custom glibc image** (`configs/glances/Dockerfile`), NOT the official `nicolargo/glances:*-full` (musl/Alpine) image. The NVIDIA runtime injects the glibc `libnvidia-ml.so`, which musl can't load (`dlvsym: symbol not found`) — so GPU (NVML) metrics only work on a glibc base.
-- Deployed as its own compose project (`-p homepage`); stack files live at `${CONFIGS}/homepage/stack/`.
+- `key: <PLACEHOLDER>` in `services.yaml` is the repo's sanitized form; the live values live only at `${CONFIGS}/homepage-config/services.yaml`.
 
-### Vocard Stack
+### vocard (6)
 
 | Service | Port |
 |---------|------|
@@ -120,9 +147,12 @@ Drift caveat: Portainer also keeps the stack body in its DB; the next UI "Update
 - `${CONFIGS}/seafile-data` — Seafile shared data
 - `${CONFIGS}/seafile-mysql` — Seafile MariaDB data
 - `${CONFIGS}/vocard/` — Vocard bot, Lavalink, and dashboard configs
+- `${CONFIGS}/komodo/` — Komodo Core: state DB, keys, backups, and the root-only `core.config.toml`
+- `${CONFIGS}/vrising/modded/` — V Rising modded server, world saves, and mod plugins
+- `${CONFIGS}/valheim/` — Valheim config, worlds, and BepInEx plugins
 - `/data/media/recorded` — manually recorded content
 - `/data/downloads` — qBittorrent downloads, HandBrake I/O
-- `/mnt/backup-5tb` — primary backup drive
+- `/mnt/backup-5tb` — primary backup drive (not always connected)
 - `/mnt/backup-1tb` — secondary backup drive (not always connected)
 
 ## Rules
@@ -140,10 +170,13 @@ Drift caveat: Portainer also keeps the stack body in its DB; the next UI "Update
 - Both Radarr and Sonarr use qBittorrent as download client
 - Seafile uses MariaDB + Memcached; config requires `CSRF_TRUSTED_ORIGINS` and `https://` URLs in `seahub_settings.py` for reverse proxy
 - Seafile Memcached container has `memcached` network alias so seahub_settings.py can reference `memcached:11211`
-- Vocard uses the **beta branch** (`v2.7.3b3`) built locally as `vocard:beta` — required for Lavalink 4.2.x `channelId` fix
-- Vocard stack uses `pull_policy: never` for the bot image (local build only)
-- Lavalink plugins: youtube-plugin 1.18.0, lavasrc 4.8.1, lavasearch 1.0.0, lavalyrics 1.0.0
+- Vocard uses the published `ghcr.io/chocomeow/vocard:v2.7.3` (pinned). It was briefly a local build of `v2.7.3b3` to get a Voicelink fix for Lavalink 4.2.x ahead of a stable tag; `v2.7.3` shipped 2026-05-09 with the Voicelink refactor, so the local build is gone. Lavalink runs as a **separate service**, which is what 2.7.3 expects — that release dropped the bundled Docker-based Lavalink setup.
+- **Vocard waits on `lavalink: service_healthy`, not `service_started`.** Lavalink needs ~4s to finish booting its plugins; v2.7.3 opens its node connection immediately and does *not* retry, so starting them together leaves a bot that looks perfectly healthy but cannot play anything. The healthcheck uses `bash /dev/tcp` because the Lavalink image has no netcat — `nc -z` would pin it at unhealthy and deadlock the stack.
+- `logging.max-history` in `settings.json` was renamed to `max_history` in v2.7.3; the live file has been updated.
+- Lavalink plugins: youtube-plugin 1.18.2, lavasrc 4.8.3, lavasearch 1.0.0, lavalyrics 1.1.0
 - Lavalink uses yt-cipher for external YouTube cipher resolution (`remoteCipher` in application.yml)
 - Lavalink JVM tuning: `-Xmx512M -XX:+UseG1GC -XX:MaxGCPauseMillis=20`
 - Vocard Dashboard accessible at `seraphine.example.com`
 - Vocard translation keys in settings.json use flattened dot notation (e.g. `@@t_player.buttons.back@@`)
+- V Rising's image is built locally from `configs/vrising/Dockerfile` and exists in no registry, so `auto_pull`/`auto_update` must stay off for that stack. `scripts/update-vocard-lavalink.sh` bumps the Lavalink plugin jars in `${CONFIGS}`.
+- Game servers both have `stop_grace_period: 120s`: V Rising's world is 254MB and autosaves every few seconds, so a 10s default SIGTERM can land mid-write.
