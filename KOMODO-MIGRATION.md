@@ -1,12 +1,50 @@
 # Portainer → Komodo
 
+> **Status: complete (2026-09-28).** All nine stacks run from Komodo clones, the
+> `portainer` container and its `portainer_data` volume are deleted, and the
+> `portainer.*` block is gone from the Caddyfile on oci. Everything below is the
+> plan as it was written *before* the work, kept as the record of why each decision
+> was made. The current workflow is in `agents.md`; do not follow the phases here.
+
+## What the cutover actually involved
+
+Phase 4, executed in order, with the findings that mattered:
+
+1. **The last Portainer-owned container was `homepage`, not the whole stack.** Five of
+   the six Portainer stacks were long gone; the `homepage` project was *half* migrated —
+   `glances` had already been recreated from the Komodo clone while `homepage` itself was
+   still labelled with `portainer_data/_data/compose/27/docker-compose.yml`. Two
+   `vocard` services (`yt-cipher`, `spotify-tokener`) were the same story, labelled from
+   `/data/compose/26/`, a path that no longer existed.
+2. **`DeployStackIfChanged` could not perform the adoption.** Deleting the container and
+   then running it reported "no change" and left the service down, because it diffs
+   against *Komodo's record of the last deploy*, not against the live containers. A full
+   `DeployStack` reconciled it immediately, and recreated only the two removed services —
+   the other four kept their original start times. This is now the first gotcha in
+   `agents.md`.
+3. **Adoption was safe because the rendered config was already identical** — the Portainer
+   `stack.env` for stack 27 carried the same five keys with the same values as the
+   Komodo-rendered `.env` (`HOMEPAGE_ALLOWED_HOSTS=*`, same `DATA`/`CONFIGS`/`TZ`/
+   `HOMEPAGE_PORT`), and the only compose differences were comments.
+4. **Archive before delete.** `portainer_data` (453K) was tarred to
+   `${CONFIGS}/portainer-archive/`, `chmod 600`, before the volume was removed. It
+   contains `portainer.db` and `portainer.key`, so it is not something to put in git.
+   Backrest already covers `${CONFIGS}`.
+5. **Nothing else referenced Portainer**: no systemd units, no compose bind mounts, no
+   other service. Ports 8000/9000/9443 are free.
+6. **Leftovers worth knowing about:** the DNS record for `portainer.bigmt.top` still
+   points at the Oracle public IP (harmless, nothing serves it), and the Homepage
+   `services.yaml` carried a now-dead Portainer API key, replaced with a Komodo card.
+
+## 1. Current state (verified on bigmt, before the migration)
+
 Plan to replace Portainer CE on **bigmt** with [Komodo](https://komo.do) (GPL-3.0, no feature gating), and to use Komodo's git-driven / declarative features instead of hot-editing compose files on the host.
 
 Decisions taken: **Core on bigmt (tailnet-only)**, **git repo + TOML Resource Sync as source of truth**, **run both in parallel, cut over after full migration**. Entry point / scope of the first pass is TBD — see [Phase 2](#phase-2--adopt-stacks).
 
 ---
 
-## 1. Current state (verified on bigmt)
+## 1. Current state as found (before the migration)
 
 Docker 29.8.1, Ubuntu 24.04, x86_64, `git` 2.43 present, NVIDIA GPU.
 
@@ -287,11 +325,37 @@ Deliberately **not** adopting: Kubernetes (unsupported), Portainer app templates
 | Webhooks never firing | Don't design around them; schedules are the primary mechanism |
 | Credentials visible in the audit trail | Acceptable for a single-admin homelab; don't reuse those creds elsewhere |
 
-## 9. Open items
+## 9. Open items (as of the plan; the first three were resolved during the cutover)
 
-- Which stack to adopt first (`v_rising`/`valheim` recommended).
-- Rewrite `stacks/vrising.yml` to the live modded server + commit the `vrising-castlelink` Dockerfile (**blocking** for that stack).
-- Export `stacks/valheim.yml` from stack 32 (**blocking** for that stack).
-- Confirm the `mediastack` split in Phase 5 is still wanted once things are stable — the analysis says yes, but it is the one piece of this plan that is pure churn with no functional requirement behind it.
-- Whether to pin all `:latest` tags to explicit versions and drive bumps with Renovate (recommended) or leave them floating with `poll_for_updates` only.
-- Alerter target: ntfy, Discord, or something else.
+- ~~Which stack to adopt first~~ — done, in the order recommended.
+- ~~Rewrite `stacks/vrising.yml` to the live modded server + commit the `vrising-castlelink` Dockerfile~~ — done, and the stack is named `vrising` (not `v_rising`).
+- ~~Export `stacks/valheim.yml` from stack 32~~ — done.
+- The `mediastack` split in Phase 5 is still wanted — the analysis says yes, but it is the one piece of this plan that is pure churn with no functional requirement behind it. `mediastack`, `seafile` and `infrastructure` are already separate projects.
+- Pin all `:latest` tags to explicit versions and drive bumps with Renovate (recommended), or leave them floating with `poll_for_updates` only.
+- Create a Komodo service user + API key if you want the Homepage widget to show the Core version (the card currently only has `docker-stats`).
+- Delete the `portainer.bigmt.top` DNS record, which still points at the Oracle public IP and now serves nothing.
+
+### Komodo service-user API keys are not permission-scoped (2.3.3)
+
+Worth knowing before anyone wires a key into an automated system. A service user is **not**
+a read-only identity:
+
+- `UpdatePermissionOnResourceType` with `level: "Read"` → `/execute/*` still succeeds.
+- `level: "None"` on all twelve resource types → `/execute/*` **still** succeeds. A
+  `DeployStack` issued with the key returned `success: true`.
+- What *is* enforced: service users cannot manage service users (`Only Admins can manage
+  Service Users`) or list users.
+- There is no `everyone` user group on this install, so the group-based route is not
+  available either.
+
+Only an admin's own JWT is unrestricted, and admins bypass permission checks, so lowering
+a group level would not have helped. **Treat a Komodo API key as equivalent to admin on
+the box.** Consequently the Homepage Komodo card uses `docker-stats` on `komodo-core-1`
+and holds no credential. `GET /version` is unauthenticated and returns `2.3.3`, but as a
+bare string, which Homepage's `api` block cannot map to a field.
+
+Also note: API keys are a **pair** — `X-Api-Key` *and* `X-Api-Secret`, both from the
+`CreateApiKeyForServiceUser` response. Sending only one gives
+`Request headers have X-API-KEY but missing X-API-SECRET`. `ListApiKeysForServiceUser`
+returns an empty `secret` for existing keys, so the secret is only readable at creation
+time; if it is lost, delete the key and make a new one.

@@ -7,7 +7,7 @@
 **The contract:**
 
 - **In git:** variable *names* and obvious placeholders only. `.env.example` is the authoritative list of names. Committed configs under `configs/` are templates using placeholders (`YOUR_BOT_TOKEN`, `<RESTIC_REPO_PASSWORD>`).
-- **On the host:** real values live in `${CONFIGS}/secrets/<stack>.env`, `chmod 600`, root-owned. `${CONFIGS}` is already covered by Backrest. Komodo attaches them per stack via `additional_env_files`, so values never enter Komodo's database.
+- **On the host:** real values live in **Komodo Variables** flagged `is_secret`, in the Mongo store under `${CONFIGS}/komodo`. Komodo renders them into `/etc/komodo/stacks/<stack>/.env` (`600 root:root`) at deploy time. There is no `${CONFIGS}/secrets/` directory and no `additional_env_files` — that was an earlier idea, never built. Komodo Core's own credentials (jwt/webhook/admin/db) are in the root-only `chmod 600` `${CONFIGS}/komodo/core.config.toml`, and values Core needs at runtime go in its `[secrets]` block. `${CONFIGS}` is covered by Backrest either way.
 - **Never** commit a working credential "temporarily", and never paste one into a compose file to test something.
 
 **Enforcement (all three layers):**
@@ -24,7 +24,7 @@
 
 - **SSH bigmt**: `ssh bigmt`
 - **SSH oci**: `ssh oci`
-- **Management**: Portainer (Docker)
+- **Management**: Komodo (`https://komodo.bigmt.top`, Tailscale only) — Portainer was removed 2026-09-28
 
 ## Deploys: git is the source of truth
 
@@ -43,12 +43,13 @@ To change anything:
 2. `git push`.
 3. In Komodo run **`DeployStackIfChanged`** on the stack. It diffs first, so a no-op costs nothing.
 
-Never edit the files under `/etc/komodo/stacks/` by hand — the next deploy overwrites them. Never let Portainer touch a project Komodo owns; two managers on one compose project fight.
+Never edit the files under `/etc/komodo/stacks/` by hand — the next deploy overwrites them. Never let a second compose manager touch a project Komodo owns; two managers on one compose project fight.
 
 **Secrets** are not in git and not in `resources.toml`. The stacks reference `[[VARIABLE]]` names; the values live in Komodo as variables flagged secret, in the Mongo store under `${CONFIGS}/komodo`.
 
-**Two gotchas that cost real time here:**
+**Three gotchas that cost real time here:**
 
+- **`DeployStackIfChanged` diffs against Komodo's record of the last deploy, not against the live containers.** Delete or stop a container out of band and it reports "no change" and does not bring it back. Use a full `DeployStack` to reconcile. Compose `up -d` is otherwise idempotent — it only recreates services whose config actually differs, so a full deploy is cheap.
 - Compose does **not** remove a service you delete from the file. It prints `Found orphan containers (...)` and leaves them running. `mediastack` carries `extra_args = ["--remove-orphans"]` for exactly this reason.
 - The Resource Sync is a **partial merge**. It rewrites any field `resources.toml` does not declare, using the schema default, and omitting a field does **not** clear it. Declare `auto_pull = false` explicitly on every stack; the default is `true`, and nearly every image here is a floating tag.
 
@@ -125,7 +126,7 @@ The guard must be host-side: inside the container the bind mount looks mounted, 
 
 - Homepage is the landing page at `bigmt.*` — app links + service API widgets + system metrics.
 - Glances is the metrics backend. Homepage reads its REST API at `http://host.docker.internal:61208` (Homepage has `host.docker.internal:host-gateway`; Glances runs `network_mode: host`).
-- Glances uses a **custom glibc image** (`configs/glances/Dockerfile`), NOT the official `nicolargo/glances:*-full` (musl/Alpine) image. The NVIDIA runtime injects the glibc `libnvidia-ml.so`, which musl can't load (`dlvsym: symbol not found`) — so GPU (NVML) metrics only work on a glibc base.
+- Glances runs the **official `nicolargo/glances:4.5.7-full` image** (musl/Alpine). It used to be a locally built glibc rebuild, so the NVIDIA runtime's glibc `libnvidia-ml.so` would load (`dlvsym: symbol not found` on musl) to feed a GPU tile. That tile no longer exists, so the rebuild was dropped — it measured identical on every metric the dashboard actually uses (cpu, memory, `fs:/data`, CPU temp, network, disk), and it was a hand-built image in no registry, which is exactly what made `docker compose pull` fail on this stack. `configs/glances/glances.conf` is still mounted and still does the real work: Host-header allowlist plus no CORS.
 - `key: <PLACEHOLDER>` in `services.yaml` is the repo's sanitized form; the live values live only at `${CONFIGS}/homepage-config/services.yaml`.
 
 ### vocard (6)

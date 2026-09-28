@@ -1,6 +1,6 @@
 # bigmt-mediaserver
 
-Self-hosted mediaserver running on **bigmt**, managed with Docker and Portainer.
+Self-hosted mediaserver running on **bigmt**, managed with Docker and Komodo.
 
 ## Architecture
 
@@ -35,7 +35,7 @@ graph TB
 
 ```mermaid
 graph LR
-    subgraph Portainer["Docker / Portainer"]
+    subgraph Komodo["Docker / Komodo"]
         subgraph main["Main Stack"]
             Jellyfin["Jellyfin<br/>host:8096"]
             Radarr["Radarr :7878"]
@@ -90,7 +90,7 @@ graph LR
     Backrest -->|restic| Backup
 ```
 
-- **bigmt** — main server running all services via Docker/Portainer
+- **bigmt** — main server running all services via Docker, deployed by Komodo (git is the source of truth)
 - **Oracle Cloud (oci)** — reverse proxy running Caddy, connected to bigmt over Tailscale
 - **DNS** — `*.example.com` points to Oracle Cloud public IP; Caddy handles TLS and proxies to bigmt via Tailscale hostname `<TAILSCALE_HOSTNAME>`
 
@@ -177,7 +177,7 @@ What breaks when a component goes down:
 | **Tailscale** | Caddy can't reach bigmt — same as Caddy down for remote access. SSH only via local network. |
 | **Pi-hole** | DNS resolution fails for all LAN clients. Services themselves keep running but clients can't resolve hostnames. Switch clients to `1.1.1.1` as workaround. |
 | **Docker engine** | All containerized services down. Cockpit (native) still accessible on `:9090`. |
-| **Portainer** | No stack management UI. Running containers are unaffected. Use `docker` CLI as fallback. |
+| **Komodo Core** | No UI, no deploys, no alerts. **Running containers are unaffected** — Periphery is a separate systemd service and Docker restart policies keep everything up. Use the `docker` CLI as fallback. |
 | **Prowlarr** | Radarr/Sonarr can't search indexers for new content. Existing downloads and libraries unaffected. |
 | **Radarr** | No new movie grabs. Jellyfin movie library still works (read-only). |
 | **Sonarr** | No new episode grabs. Jellyfin show library still works (read-only). |
@@ -218,7 +218,7 @@ Caddy runs on the Oracle Cloud instance (`proxy/Caddyfile`). All subdomains unde
 | `jellyseerr.*`                   | Jellyseerr (:5055)  |
 | `prowlarr.*`                     | Prowlarr (:9696)    |
 | `qbittorrent.*`                  | qBittorrent (:8080) |
-| `portainer.*`                    | Portainer (:9000)   |
+| `komodo.*`                       | Komodo Core (:9120, Tailscale only) |
 | `cockpit.*`                      | Cockpit (:9090)     |
 | `immich.*`                       | Immich (:2283)      |
 | `pihole.*`                       | Pi-hole (:80)       |
@@ -299,7 +299,7 @@ Uptime Kuma monitors all services via their public reverse-proxied URLs. All mon
 | qBittorrent | `https://qbittorrent.example.com` |
 | Immich | `https://immich.example.com` |
 | Pi-hole | `https://pihole.example.com/admin` |
-| Portainer | `https://portainer.example.com` |
+| Komodo | `https://komodo.example.com` (Tailscale only — Caddy `private_only`) |
 | Cockpit | `https://cockpit.example.com` |
 
 **Notifications**: Discord webhook (channel: "Kuma webhook")
@@ -461,11 +461,20 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
    # Edit .env with your actual values
    ```
 
-3. Deploy stacks via **Portainer** (Stacks → Add stack → paste compose file contents, add env vars from `.env`):
-   - Main stack from `stacks/docker-compose.yml`
-   - Immich stack from `stacks/immich.yml`
+3. Stand up Komodo Core + Mongo, then Periphery, and import the stacks (see [KOMODO-MIGRATION.md](KOMODO-MIGRATION.md) and `agents.md` for the current workflow). Each stack in `stacks/` becomes a Komodo Stack whose `file_paths` points at that file:
+   - `mediastack` from `stacks/docker-compose.yml`
+   - `immich` from `stacks/immich.yml`
+   - `homepage` from `stacks/homepage.yml`
+   - `seafile` from `stacks/seafile.yml`
+   - `infrastructure` from `stacks/infrastructure.yml`
+   - `backrest` from `stacks/backrest.yml`
+   - `vocard` from `stacks/vocard.yml`
+   - `vrising` from `stacks/vrising.yml`
+   - `valheim` from `stacks/valheim.yml`
 
-   > **Do not** use `docker compose` CLI — Portainer manages all stacks and CLI-created containers cause naming conflicts.
+   > **Stack name must equal the compose project name**, or the first deploy silently
+   > recreates the project. First deploy is always **`DeployStackIfChanged`** — stop if the
+   > diff wants to recreate a container you did not touch.
 
 4. Deploy the Caddyfile on the Oracle Cloud instance:
    ```bash
@@ -473,64 +482,70 @@ LinuxServer.io custom init script that installs ffmpeg into Radarr/Sonarr contai
    ssh oci "sudo systemctl reload caddy"
    ```
 
-## Portainer & Hot Deploys
+## Deploys
 
-All stacks are managed by **Portainer**, which materializes each stack's compose file
-and env onto the host inside the `portainer_data` volume:
+Every stack is a **git clone under `/etc/komodo/stacks/<stack>/`**, made by Komodo and
+deployed from this repo. Git is the source of truth; there is no host-side compose file
+to edit.
 
 | What | Host path (root-owned) |
 | ---- | ---------------------- |
-| Main stack compose | `/data/docker/volumes/portainer_data/_data/compose/1/docker-compose.yml` |
-| Main stack env     | `/data/docker/volumes/portainer_data/_data/compose/1/stack.env` |
+| Clone | `/etc/komodo/stacks/<stack>/` |
+| Compose file | `/etc/komodo/stacks/<stack>/stacks/<file>.yml` |
+| Rendered env | `/etc/komodo/stacks/<stack>/.env` |
 
-> The stack **id** (`1` here) is the number in Portainer's stack URL. Find any container's
-> stack file with:
+> Periphery is confined to `root_directory` (`/etc/komodo`), so nothing outside that path is
+> visible to Komodo. Find which file backs any running container with:
 > `docker inspect <name> --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}'`
-> (that path is *inside* the Portainer container; prefix it with the host volume path above).
 
-### Hot-injecting a change (no UI editing)
-
-To add/modify a service without pasting YAML into the Portainer UI, edit the materialized
-compose file directly and redeploy just the changed service:
+### Changing something
 
 ```bash
-D=/data/docker/volumes/portainer_data/_data/compose/1
-# 1. back up first
-sudo cp $D/docker-compose.yml $D/docker-compose.yml.bak.$(date +%Y%m%d%H%M%S)
-# 2. edit $D/docker-compose.yml (sudo)  — keep it in sync with stacks/docker-compose.yml in this repo
-# 3. redeploy only the changed service, using Portainer's own env file
-sudo docker compose -f $D/docker-compose.yml --env-file $D/stack.env up -d <service>
+# 1. edit the compose file in stacks/ in this repo, then:
+git commit -am "..." && git push
+# 2. in Komodo, run the Resource Sync (komodo/resources.toml), then
+#    DeployStackIfChanged on the affected stack
 ```
 
-> ⚠️ **Drift caveat:** Portainer also stores the stack body in its internal database.
-> A file-only hot edit runs correctly, but the **next** time you click *Update the stack*
-> in the Portainer UI it will overwrite your file edit with the DB copy. To make the change
-> permanent, also paste the same YAML into the Portainer UI editor once (or use the Portainer
-> API `PUT /api/stacks/{id}`). **Always keep `stacks/docker-compose.yml` in this repo as the
-> source of truth** and mirror hot edits back into it.
+Never hand-edit `/etc/komodo/stacks/**` — the next deploy overwrites it.
+
+> ⚠️ **`DeployStackIfChanged` diffs against Komodo's own record of the last deploy, not
+> against the live containers.** If you delete a container out of band, `IfChanged` reports
+> no change and does **not** bring it back. Use a full `DeployStack` to reconcile. Compose
+> `up -d` is otherwise idempotent: it only recreates services whose config actually differs.
 
 ## Directory Structure
 
 ```
 .
-├── configs/
-│   └── backrest/
-│       └── config.json            # Sanitized Backrest config (for bootstrap restore)
-│   └── glances/
-│       └── Dockerfile            # glibc Glances build (GPU/NVML metrics for Homepage)
+├── configs/                   # Sanitized service configs (see agents.md for the live paths)
+│   ├── backrest/config.json
+│   ├── glances/               # Glances web API hardening (glances.conf)
+│   ├── homepage-config/       # Homepage + Glances configs
+│   └── vocard/                # Vocard bot, Lavalink, dashboard
+├── komodo/
+│   └── resources.toml         # Declarative Komodo resource sync (stacks, variables, server)
 ├── proxy/
 │   └── Caddyfile              # Caddy reverse proxy config (runs on Oracle Cloud)
 ├── scripts/
 │   ├── dock-hdd.sh            # mountdock/unmountdock/pwoffdock helpers for the USB dock
 │   ├── extract-subs.sh        # ASS/SSA to SRT subtitle extractor for Radarr/Sonarr
-│   └── install-ffmpeg.sh      # ffmpeg installer for LinuxServer containers
-├── stacks/
-│   ├── docker-compose.yml     # Main media stack (Jellyfin, *arr, downloads)
+│   ├── install-ffmpeg.sh      # ffmpeg installer for LinuxServer containers
+│   └── update-vocard-lavalink.sh  # Bumps the Lavalink plugin jars
+├── stacks/                    # One file per Komodo Stack (= one compose project)
+│   ├── docker-compose.yml     # mediastack (Jellyfin, *arr, downloads)
 │   ├── seafile.yml            # Seafile + MariaDB + Memcached
+│   ├── infrastructure.yml     # Pi-hole, Uptime Kuma, Scrutiny
+│   ├── backrest.yml           # Backrest (own project, gated by backrest-guard)
 │   ├── homepage.yml           # Homepage dashboard + Glances metrics stack
-│   └── immich.yml             # Immich photo management stack
+│   ├── immich.yml             # Immich photo management stack
+│   ├── komodo.yml             # Komodo Core + Mongo (not managed by Komodo)
+│   ├── vocard.yml             # Vocard bot + Lavalink + support services
+│   ├── vrising.yml            # V Rising (modded, locally built image)
+│   └── valheim.yml            # Valheim
 ├── .env.example               # Environment variable template
-├── AGENTS.md                  # Agent instructions for this project
+├── agents.md                  # Agent instructions for this project
+├── KOMODO-MIGRATION.md        # Portainer -> Komodo plan and rationale
 ├── DISASTER-RECOVERY.md       # Full rebuild runbook for bigmt and OCI
 ├── PTERODACTYL.md             # Pterodactyl game server panel docs (runs on OCI)
 └── README.md

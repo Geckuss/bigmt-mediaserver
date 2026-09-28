@@ -248,9 +248,9 @@ tags = ["prod", "games"]
   environment = """
 CONFIGS = [[CONFIGS]]
 TZ = [[TZ]]
-# These four come from Portainer's stack.env, NOT from the compose file, whose
-# defaults are WORLD_REDACTED/2456/2457. Leaving them out would silently switch
-# the server to a different world on the first deploy.
+# These four were carried over from the old Portainer stack.env, NOT from the
+# compose file, whose defaults are WORLD_REDACTED/2456/2457. Leaving them out would
+# silently switch the server to a different world on the first deploy.
 VALHEIM_SERVER_NAME = WORLD_REDACTED
 VALHEIM_WORLD_NAME = WORLD_REDACTED
 VALHEIM_GAME_PORT = 2456

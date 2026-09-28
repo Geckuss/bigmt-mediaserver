@@ -1,6 +1,6 @@
 # Pterodactyl
 
-Game server management panel for Minecraft servers. Runs on the **oci** instance (Oracle Cloud) — not on bigmt and not managed by Portainer. Both the **Panel** (web UI) and **Wings** (daemon that spawns game server containers) are installed natively via systemd.
+Game server management panel for Minecraft servers. Runs on the **oci** instance (Oracle Cloud) — not on bigmt and not managed by Komodo (which only manages bigmt). Both the **Panel** (web UI) and **Wings** (daemon that spawns game server containers) are installed natively via systemd.
 
 ## Architecture
 

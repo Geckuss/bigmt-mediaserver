@@ -6,7 +6,8 @@
 #   2. gitleaks, if it happens to be installed (much broader rule set).
 #
 # This repo is PUBLIC. Only variable NAMES and obvious placeholders may be
-# committed; real values live on the host under ${CONFIGS}/secrets/.
+# committed; real values live on the host in Komodo Variables flagged is_secret
+# (see agents.md).
 set -uo pipefail
 
 fail=0

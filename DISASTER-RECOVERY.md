@@ -185,40 +185,42 @@ sudo chown -R mobius:mobius /data/media /data/backups/configs
 
 > **Note:** When the full stack is deployed later (Step 11), Backrest will start with the now-complete config including all restored data.
 
-### Step 10: Install Portainer
+### Step 10: Stand up Komodo
+
+Komodo replaces Portainer as the thing that deploys the stacks. It is a compose project of
+its own that Komodo does **not** manage — bring it up by hand, once:
 
 ```bash
-docker volume create portainer_data
-docker run -d \
-    -p 8000:8000 -p 9000:9000 -p 9443:9443 \
-    --name portainer \
-    --restart=always \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v portainer_data:/data \
-    portainer/portainer-ce:lts
+git clone https://github.com/Geckuss/bigmt-mediaserver.git /tmp/bigmt-mediaserver
+cd /tmp/bigmt-mediaserver
+# generate KOMODO_JWT_SECRET / KOMODO_WEBHOOK_SECRET / KOMODO_DATABASE_PASSWORD /
+# an admin password, then write them into the root-only config:
+sudo mkdir -p /data/backups/configs/komodo
+sudo cp stacks/komodo.yml /data/backups/configs/komodo-bootstrap.yml
+sudo chmod 600 /data/backups/configs/komodo/core.config.toml
+docker compose -p komodo -f /data/backups/configs/komodo-bootstrap.yml up -d
 ```
 
-Access Portainer at `http://bigmt:9000` and create an admin account.
+Then install Periphery as a systemd service and point it at Core:
+
+```bash
+sudo systemctl enable --now periphery
+```
 
 ### Step 11: Deploy stacks
 
-Clone this repo and set up environment:
+Each file in `stacks/` is a **Komodo Stack**; `komodo/resources.toml` declares all of them
+and is the source of truth. In the Komodo UI, import the resource sync, then create the
+Stacks it declares and deploy each with **`DeployStackIfChanged`**.
 
-```bash
-git clone https://github.com/Geckuss/bigmt-mediaserver.git
-cd bigmt-mediaserver
-cp .env.example .env
-# Edit .env with actual values (paths, passwords)
-```
+> **Warning:** A Stack's **name must equal its compose project name** (e.g. the `mediastack`
+> Stack uses `stacks/docker-compose.yml`), or the first deploy silently recreates the whole
+> project. If `DeployStackIfChanged` wants to recreate a container you did not touch, stop
+> and fix the diff.
 
-**Deploy via Portainer UI:**
-
-1. Go to Stacks → Add Stack
-2. Paste contents of each compose file
-3. Add environment variables from .env
-4. Deploy
-
-> **Warning:** Do NOT deploy stacks via `docker compose` CLI — this creates containers under a different project name and causes conflicts with Portainer stack management.
+> ⚠️ `DeployStackIfChanged` diffs against Komodo's record of the last deploy, **not** against
+> the live containers. After any out-of-band change (or a restore), use a full `DeployStack`
+> to reconcile.
 
 ### Step 12: Install Cockpit
 
@@ -326,7 +328,7 @@ Ensure `*.example.com` points to the new Oracle Cloud instance's public IP.
 | Docker Compose           | v5.0.2                                           |
 | Docker data root         | `/data/docker`                                   |
 | Tailscale                | 1.96.4                                           |
-| Portainer                | portainer-ce:lts                                 |
+| Komodo                   | 2.3.3 (`ghcr.io/moghtech/komodo-core`)           |
 | Cockpit                  | 352                                              |
 | User                     | mobius (UID 1000, GID 1000, sudo NOPASSWD)       |
 | Data drive               | WD 12TB, LABEL=data, mounted at `/data`          |
