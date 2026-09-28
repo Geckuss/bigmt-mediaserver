@@ -68,6 +68,10 @@
           type: jellyfin
           url: http://host.docker.internal:8096
           key: <JELLYFIN_API_KEY>
+          # Jellyfin >= 10.12 must use widget v2. v1 (the default) calls the
+          # legacy /emby/ routes and ?api_key= auth, which Jellyfin 12 removed,
+          # so the widget fails with a 404 on /emby/Items/Counts.
+          version: 2
           enableBlocks: true
           enableNowPlaying: false
     - Jellyseerr:
