@@ -248,11 +248,12 @@ tags = ["prod", "games"]
   environment = """
 CONFIGS = [[CONFIGS]]
 TZ = [[TZ]]
-# These four were carried over from the old Portainer stack.env, NOT from the
-# compose file, whose defaults are WORLD_REDACTED/2456/2457. Leaving them out would
-# silently switch the server to a different world on the first deploy.
-VALHEIM_SERVER_NAME = WORLD_REDACTED
-VALHEIM_WORLD_NAME = WORLD_REDACTED
+# The world and server names are private, so they are Komodo variables flagged
+# secret rather than literals here. stacks/valheim.yml uses ${VAR:?} for both,
+# which means compose refuses to render if they are ever missing - a fallback
+# would start players on a different, older world that is still on disk.
+VALHEIM_SERVER_NAME = [[VALHEIM_SERVER_NAME]]
+VALHEIM_WORLD_NAME = [[VALHEIM_WORLD_NAME]]
 VALHEIM_GAME_PORT = 2456
 VALHEIM_QUERY_PORT = 2457
 VALHEIM_SERVER_PASS = [[VALHEIM_SERVER_PASS]]

@@ -522,6 +522,7 @@ Never hand-edit `/etc/komodo/stacks/**` — the next deploy overwrites it.
 │   ├── backrest/config.json
 │   ├── glances/               # Glances web API hardening (glances.conf)
 │   ├── homepage-config/       # Homepage + Glances configs
+│   ├── valheim/               # modmanifest.json: the recorded mod versions (see agents.md)
 │   └── vocard/                # Vocard bot, Lavalink, dashboard
 ├── komodo/
 │   └── resources.toml         # Declarative Komodo resource sync (stacks, variables, server)

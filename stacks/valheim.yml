@@ -9,9 +9,13 @@ services:
     stop_grace_period: 120s
     environment:
       - TZ=${TZ:-Europe/Helsinki}
-      - SERVER_NAME=${VALHEIM_SERVER_NAME:-WORLD_REDACTED}
-      # world dir name inside worlds_local (the modded world generated on first boot)
-      - WORLD_NAME=${VALHEIM_WORLD_NAME:-WORLD_REDACTED}
+      # No inline default for these two. The world dir name is private, and a
+      # wrong default is worse than a hard failure: an older, abandoned world
+      # with a similar name still exists on the host, so a fallback would
+      # silently start players on the wrong world. ${VAR:?} makes compose
+      # refuse to render instead. Both come from Komodo variables.
+      - SERVER_NAME=${VALHEIM_SERVER_NAME:?VALHEIM_SERVER_NAME must be set}
+      - WORLD_NAME=${VALHEIM_WORLD_NAME:?VALHEIM_WORLD_NAME must be set}
       - SERVER_PASS=${VALHEIM_SERVER_PASS}
       # admin SteamIDs (space separated) for in-game F1 config edits + admin commands
       - ADMINLIST_IDS=${VALHEIM_ADMINLIST_IDS:-}

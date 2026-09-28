@@ -161,11 +161,43 @@ The guard must be host-side: inside the container the bind mount looks mounted, 
 - `${CONFIGS}/vocard/` — Vocard bot, Lavalink, and dashboard configs
 - `${CONFIGS}/komodo/` — Komodo Core: state DB, keys, backups, and the root-only `core.config.toml`
 - `${CONFIGS}/vrising/modded/` — V Rising modded server, world saves, and mod plugins
-- `${CONFIGS}/valheim/` — Valheim config, worlds, and BepInEx plugins
+- `${CONFIGS}/valheim/` — Valheim config, worlds, and BepInEx plugins (see the Valheim section)
 - `/data/media/recorded` — manually recorded content
 - `/data/downloads` — qBittorrent downloads, HandBrake I/O
 - `/mnt/backup-5tb` — primary backup drive (not always connected)
 - `/mnt/backup-1tb` — secondary backup drive (not always connected)
+
+## Valheim: mods
+
+Mods are managed on the Windows box in Gale, then **copied to the server by hand**. `configs/valheim/modmanifest.json` is the record of which versions the server is meant to be running; nothing here consumes it automatically.
+
+Copying wins over a download-based installer for one specific reason: the tuned mod **config** files live only in the Gale profile. An installer that re-downloads the mods gives you default configs and silently loses them.
+
+**Never copy `BepInEx/core/`.** The client profile ships its own BepInEx core; the server's core is installed and self-updated by the container image. Copying it across means two owners, and the image will overwrite it or break its doorstop setup. Copy **`plugins/`, `patchers/` and `config/` only** — and not `cache/`, `logs/` or `DumpedAssemblies/`.
+
+To change mods:
+
+1. Change them in Gale, then export the profile and commit it to `configs/valheim/modmanifest.json` (strip the profile name and description first — this repo is public).
+2. From PowerShell, copy the three directories across (one line, no temp files):
+
+   ```powershell
+   $b = "$env:APPDATA\com.kesomannen.gale\valheim\profiles\<profile>\BepInEx"
+   tar -cf - -C $b plugins patchers config |
+     ssh bigmt "sudo tar -xf - -C /data/backups/configs/valheim/config/bepinex"
+   ```
+
+3. Restart the stack **through Komodo** (`RestartStack` on `valheim`), not `docker compose`, so the `stop_grace_period: 120s` applies and the world saves cleanly.
+
+Copying merges rather than replaces, so a mod you *removed* in Gale stays on the server until you delete its folder by hand.
+
+Gale cannot drive the server: it is a GUI app, its CLI only does `-i` (install a local zip) and `-l` (launch), and its "profile sync" is cloud sharing between players, not a file sync.
+
+**The mod sources are split, not migrated.** The Azumatt suite, `Smoothbrain-TargetPortal` and a couple of others now only exist on **Hexium**; the rest are still **Thunderstore**-only. A manifest that ignores this will resolve ~15 of its pins to older versions or fail outright, so check which site a new pin belongs to before assuming Thunderstore.
+
+**Why the versions matter here:** the container self-updates the Valheim build itself every ~15 minutes, unattended. A new game build can therefore break server-side plugins with nobody watching. The `valheim-updater` lines in the container log are the source of truth for "is there a new build" — not the image badge. The image itself only carries the wrapper (entrypoint, supervisord, steamcmd, updater scripts); world, mods, config and the game install are all bind mounts, so an image update never touches your data.
+
+**Watch out:** `stacks/valheim.yml` defaults `WORLD_NAME` to an older, abandoned world name that still exists on disk, while `resources.toml` pins the world actually in use. If that variable is ever lost, the server would silently start players on the wrong world.
+
 
 ## Rules
 
