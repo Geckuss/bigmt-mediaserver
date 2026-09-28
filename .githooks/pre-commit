@@ -14,21 +14,18 @@ fail=0
 
 # Exact values that are committed on purpose. Keep this list short and justify
 # every entry -- these are published, so they must be worthless or rotated.
+# Must stay in sync with .gitleaks.toml.
 ALLOW_VALUES='youshallnotpass vocard-ipc-secret'
 
-is_allowed() {
-  local v="$1"
-  for a in $ALLOW_VALUES; do
-    [ "$v" = "$a" ] && return 0
-  done
-  # Placeholders are not secrets.
-  case "$v" in
-    YOUR_*|your_*|CHANGEME*|changeme*|EXAMPLE*|example*|REDACTED*|*redacted*|placeholder*|xxxx*|XXXX*) return 0 ;;
-    '<'*'>'|'<'*) return 0 ;;
-    '${'*|'${'*) return 0 ;;
-    *'{'*'}'*) return 0 ;;
-  esac
-  return 1
+# Drop a grep hit whose value is an explicitly published allowlist entry.
+# Boundaries matter: matching as a bare substring would let "vocard-ipc-secret"
+# through for "vocard-ipc-secret-plus-something" as well. This is what the
+# is_allowed() helper was meant to do; it was never called, so every allowlist
+# entry was a hard failure instead and the guard had no allowlist at all.
+allow_filter() {
+  local pat
+  pat="$(printf '%s' "$ALLOW_VALUES" | tr ' ' '|')"
+  grep -vE "(^|[^A-Za-z0-9_-])(${pat})([^A-Za-z0-9_-]|\$)"
 }
 
 # ---- Layer 1: built-in scan -------------------------------------------------
@@ -43,9 +40,18 @@ scan_builtin() {
     git show ":$f" 2>/dev/null | grep -nE \
       '(-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{50,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{32,})' \
       | sed "s|^|$f:|"
+    # keyword, then an optional compound fragment, then an optional closing quote
+    # (JSON keys are quoted: "secret_key":), then the separator. The fragment is
+    # what catches secret_key / bot_token / api_key, which the old pattern missed
+    # because it required a bare ":" straight after the keyword. It is limited to
+    # "_" and "-": allowing any letters made "token" match inside "tokener" and
+    # "key" inside "keys", which are not secrets. Minimum value length is 4, not
+    # 12 -- the vocard mongo root password was 5 characters and went through a
+    # 12-char floor.
     git show ":$f" 2>/dev/null | grep -inE \
-      '(password|passwd|secret|token|api[_-]?key)[[:space:]]*[:=][[:space:]]*"?[A-Za-z0-9/+_.!-]{12,}' \
-      | grep -viE '(=|:)[[:space:]]*"?(\$\{|<|YOUR_|CHANGEME|EXAMPLE|REDACTED|placeholder)' \
+      '(password|passwd|secret|token|key)[-_]*["'"'"'`]?[[:space:]]*[:=][[:space:]]*["'"'"'`]?[A-Za-z0-9/+_.!$-]{4,}' \
+      | grep -viE '(=|:)[[:space:]]*["'"'"'`]?(\$\{|<|YOUR_|CHANGEME|EXAMPLE|REDACTED|placeholder)' \
+      | allow_filter \
       | sed "s|^|$f:|"
   done > "$tmp"
 
