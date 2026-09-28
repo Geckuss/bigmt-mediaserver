@@ -105,7 +105,27 @@ services:
       start_period: 10s
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       timeout: 5s
-    image: mongo:8
+    # Pinned to the exact patch, not a floating tag. `mongo:8` moved to 8.3.11 on
+    # 2026-09-16, and 8.3.x carries a startup guard that hard-exits mongod on
+    # Linux kernel >= 6.19 (SERVER-121912). This host runs 7.0.0-31-generic, so
+    # the stack crash-looped from the moment the container was recreated on
+    # 2026-09-28 and the bot lost its database.
+    #
+    # The guard is a false positive here, and the pin is deliberate rather than
+    # a rollback. The underlying bug is a TCMalloc/rseq ABI break in kernel
+    # 6.19. The kernel-side fix (Gleixner's "rseq: Revert to historical
+    # performance killing behaviour") is in Ubuntu 7.0.0-28+, so this x86_64 host
+    # already has it; the allocator is sound. MongoDB's check just parses
+    # "7.0.0-31" as 7.0.0, sees it below 7.0.14, and refuses to start. That is
+    # MongoDB's own bug, SERVER-131779, fixed in 8.0.35 / 8.3.14 / 9.0.3. At the
+    # time of writing 8.3.14 was not yet published, so there is no newer image
+    # that both contains the fix and can be had.
+    #
+    # This is also an exact match for the data: 8.2.12 is the build that wrote
+    # mongodb_data, and the 8.3.11 container never got far enough to touch it, so
+    # there is no version migration in either direction. Revisit once the host
+    # is back on a kernel below 6.19, at which point any current mongod works.
+    image: mongo:8.2.12
     networks:
       - vocard
     restart: unless-stopped
