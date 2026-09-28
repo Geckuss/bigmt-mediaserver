@@ -259,6 +259,11 @@ VALHEIM_QUERY_PORT = 2457
 VALHEIM_SERVER_PASS = [[VALHEIM_SERVER_PASS]]
 # A SteamID, so treated as a secret rather than committed.
 VALHEIM_ADMINLIST_IDS = [[VALHEIM_ADMINLIST_IDS]]
+# Advertise in the public community browser. Keep this false: the address the
+# server advertises is the home router's WAN, not the nginx relay on oci, so
+# Valve's A2S query never reaches the server and Steam removes the entry within
+# ~5 minutes. Players reach it via valheim.bigmt.top in the Join IP field.
+VALHEIM_SERVER_PUBLIC = false
 """
 
 # --- the sync itself ---------------------------------------------------------

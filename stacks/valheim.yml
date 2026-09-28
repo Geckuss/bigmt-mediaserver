@@ -19,8 +19,12 @@ services:
       - SERVER_PASS=${VALHEIM_SERVER_PASS}
       # admin SteamIDs (space separated) for in-game F1 config edits + admin commands
       - ADMINLIST_IDS=${VALHEIM_ADMINLIST_IDS:-}
-      # keep the server private (not listed in public community browser)
-      - SERVER_PUBLIC=false
+      # Whether to advertise in the public community browser. Leave false: Valve
+      # A2S-queries the address the server advertises, which behind NAT is the
+      # home router's WAN address, not the nginx relay on oci. The query fails and
+      # Steam drops the entry within ~5 min, so true buys a listing that vanishes.
+      # Set true only to confirm that behaviour; players join by IP regardless.
+      - SERVER_PUBLIC=${VALHEIM_SERVER_PUBLIC:-false}
       # enable BepInEx modding framework (installed on first boot)
       - BEPINEX=true
     volumes:

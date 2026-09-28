@@ -225,6 +225,53 @@ Gale cannot drive the server: it is a GUI app, its CLI only does `-i` (install a
 - V Rising's image is built locally from `configs/vrising/Dockerfile` and exists in no registry, so `auto_pull`/`auto_update` must stay off for that stack. `scripts/update-vocard-lavalink.sh` bumps the Lavalink plugin jars in `${CONFIGS}`.
 - Game servers both have `stop_grace_period: 120s`: V Rising's world is 254MB and autosaves every few seconds, so a 10s default SIGTERM can land mid-write.
 
+## Game servers: reaching them from the internet
+
+Neither game server has a public IP. bigmt is `192.168.0.40` behind the home
+router, whose WAN address is `86.50.78.255`, and the router forwards **no** game
+ports — verified by sending UDP from oci to that WAN address on every game port
+and confirming with `tcpdump` on bigmt that nothing arrives. So there is no route
+in, and the two games solve this in completely different ways.
+
+**V Rising needs nothing.** It is reached over **Steam's own relay (SDR)**, which
+traverses the NAT, so it appears in the Steam community server list and works for
+friends anywhere. There is no Caddy block, no DNS record, and no proxy for it.
+Leave it that way. Its host ports are `9878`/`9879` (container `9876`/`9877`).
+
+**Valheim cannot use that mechanism, so oci relays it.** Valheim's default Steam
+backend advertises a bare IP, and the community browser A2S-queries that address,
+so behind NAT the query fails and Steam drops the entry within ~5 minutes. The
+official fix — `-crossplay`, which relays through PlayFab and explicitly needs no
+port forwarding — is **unusable here because it is incompatible with BepInEx**,
+and this server is modded. Enabling it would silently drop the whole mod stack.
+
+So `proxy/nginx-stream.conf` runs on oci as the `valheim-udp` container and
+forwards UDP `2456`/`2457` over the tailnet to `100.115.115.115`. `valheim.bigmt.top`
+already resolves to oci, so no DNS change was needed. Caddy cannot do this job:
+Valheim is UDP and Caddy speaks HTTP only.
+
+**Consequences to remember:**
+
+- **`SERVER_PUBLIC` must stay `false`** (it is a variable, `VALHEIM_SERVER_PUBLIC`).
+  Setting it true registers the server, then Valve's A2S query to the router's WAN
+  address fails and the entry disappears. It is a way to *confirm* the diagnosis,
+  not a way to get a listing.
+- Players join with **Join IP** → `valheim.bigmt.top`, not the server browser.
+- `proxy_timeout 300s` is deliberate. nginx's 10s default would kill an idle
+  player long before Valheim's own keepalive.
+- No `load_module` line for stream: in the official nginx image the core
+  `ngx_stream_module` is compiled into the binary, so `load_module` fails with
+  `dlopen() ... No such file or directory`. Only the geoip/js submodules are `.so`.
+- oci's `ufw` needed `allow 2456/udp` and `allow 2457/udp` (its INPUT policy is
+  DROP). The **OCI security list was already open** for them, so no console change
+  was required — worth re-checking there if the relay ever stops working from
+  outside.
+- oci is not Komodo-managed, so the container is plain `docker run
+  --restart unless-stopped` like the other hand-managed containers there.
+- The tailnet has **no ACL file** (`PacketFilter: 0` rules = allow-all), which is
+  why oci → bigmt on these ports needs no Tailscale policy change. Adding a
+  restrictive ACL later would break the relay.
+
 ## Alerting: deep-linked Discord notifications
 
 `komodo-discord-forwarder.service` sits between Komodo and Discord so every alert
