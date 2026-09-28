@@ -17,10 +17,16 @@ services:
     restart: unless-stopped
 
   glances:
-    # prebuilt glibc image (configs/glances/Dockerfile) so NVML loads for GPU metrics
-    # build once on the host:  docker build -t glances-gpu:local ${CONFIGS}/glances
-    # (Portainer string-stacks can't build from a host path, so we reference the prebuilt image)
-    image: glances-gpu:local
+    # The official image, not the glibc rebuild that used to live here.
+    # That rebuild existed only because the nvidia runtime injects a glibc
+    # libnvidia-ml.so that the musl/Alpine official image cannot dlopen, and the
+    # only widget that needed NVML was a GPU tile. There is no GPU tile, so the
+    # rebuild bought nothing and cost a hand-built image in no registry (which is
+    # also what made `docker compose pull` fail on this stack).
+    # Verified equivalent for every widget the dashboard actually uses - cpu,
+    # memory, fs:/data, CPU temp (sensors), network and disk all report the same
+    # values - and the official image does honour the mounted glances.conf.
+    image: nicolargo/glances:4.5.7-full
     container_name: glances
     # host mode gives real per-interface network stats (incl. tailscale0) + host sensors
     network_mode: host
@@ -29,9 +35,6 @@ services:
       - TZ=${TZ:-Europe/Helsinki}
       # run the web/API server on :61208
       - GLANCES_OPT=-w
-      # GTX 1070 metrics via NVML (libnvidia-ml injected by the nvidia runtime)
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=utility
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/os-release:/etc/os-release:ro
@@ -40,12 +43,4 @@ services:
       # locks down the web API: Host header allowlist + no CORS. Without it
       # Glances warns and leaves /api/4/all readable by anything on the LAN.
       - ${CONFIGS}/glances/glances.conf:/etc/glances/glances.conf:ro
-    runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu, utility]
     restart: unless-stopped

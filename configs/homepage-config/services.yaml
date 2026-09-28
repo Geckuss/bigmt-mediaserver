@@ -153,17 +153,33 @@
           url: http://host.docker.internal:80
           version: 6
           key: <PIHOLE_PASSWORD>
-    - Portainer:
-        icon: portainer.png
-        href: https://portainer.example.com
+    - Komodo:
+        icon: komodo.png
+        href: https://komodo.example.com
         description: Docker Management
         server: my-docker
-        container: portainer
+        container: komodo-core-1
         widget:
-          type: portainer
-          url: http://host.docker.internal:9000
-          env: 3
-          key: <PORTAINER_API_KEY>
+          # Homepage has a NATIVE komodo widget (type: komodo). It needs an
+          # API key + secret, which in Komodo 2.3.3 are NOT permission-scoped:
+          # setting every resource type to Read, then to None, still allowed
+          # /execute/*, and a DeployStack issued with such a key succeeded.
+          # So this key can deploy or destroy any stack on the box. The live
+          # services.yaml holds the real values; never commit them.
+          #
+          # Note: there is NO per-service docker-stats widget in Homepage --
+          # `type: docker-stats` renders "Missing Widget Type". Per-container
+          # CPU/mem for a single service is not offered; the `container:` field
+          # above gives the status dot only.
+          type: komodo
+          url: http://host.docker.internal:9120
+          key: <KOMODO_API_KEY>
+          secret: <KOMODO_API_SECRET>
+          showSummary: true
+          fields:
+            - servers
+            - stacks
+            - containers
     - Uptime Kuma:
         icon: uptime-kuma.png
         href: https://uptime.example.com
