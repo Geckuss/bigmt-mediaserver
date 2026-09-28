@@ -32,7 +32,7 @@ Phase 4, executed in order, with the findings that mattered:
    Backrest already covers `${CONFIGS}`.
 5. **Nothing else referenced Portainer**: no systemd units, no compose bind mounts, no
    other service. Ports 8000/9000/9443 are free.
-6. **Leftovers worth knowing about:** the DNS record for `portainer.bigmt.top` still
+6. **Leftovers worth knowing about:** the DNS record for `portainer.example.com` still
    points at the Oracle public IP (harmless, nothing serves it), and the Homepage
    `services.yaml` carried a now-dead Portainer API key, replaced with a Komodo card.
 
@@ -333,7 +333,7 @@ Deliberately **not** adopting: Kubernetes (unsupported), Portainer app templates
 - The `mediastack` split in Phase 5 is still wanted — the analysis says yes, but it is the one piece of this plan that is pure churn with no functional requirement behind it. `mediastack`, `seafile` and `infrastructure` are already separate projects.
 - Pin all `:latest` tags to explicit versions and drive bumps with Renovate (recommended), or leave them floating with `poll_for_updates` only.
 - Create a Komodo service user + API key if you want the Homepage widget to show the Core version (the card currently only has `docker-stats`).
-- Delete the `portainer.bigmt.top` DNS record, which still points at the Oracle public IP and now serves nothing.
+- Delete the `portainer.example.com` DNS record, which still points at the Oracle public IP and now serves nothing.
 
 ### Komodo service-user API keys are not permission-scoped (2.3.3)
 

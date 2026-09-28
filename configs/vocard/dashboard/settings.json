@@ -4,7 +4,7 @@
     "password": "vocard-ipc-secret",
     "client_id": "YOUR_CLIENT_ID",
     "client_secret_id": "YOUR_CLIENT_SECRET",
-    "secret_key": "vocard-dashboard-session-key",
+    "secret_key": "YOUR_DASHBOARD_SECRET_KEY",
     "redirect_url": "https://seraphine.example.com/callback",
     "logging": {
         "file": {

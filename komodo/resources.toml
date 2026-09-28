@@ -209,6 +209,13 @@ tags = ["prod", "bot"]
   environment = """
 CONFIGS = [[CONFIGS]]
 TZ = [[TZ]]
+# This was a literal `admin` in stacks/vocard.yml until 2026-09-28, i.e. the
+# root password for a mongod running with --auth, published in a public repo
+# since 2026-05-07. Rotated off the literal; see agents.md for the caveat that
+# MONGO_INITDB_ROOT_PASSWORD only applies to a first init of an empty volume, so
+# the live password was NOT changed by that edit and needs rotating in mongod
+# itself. No inline default in the compose file for the same reason as Valheim.
+VOCARD_MONGO_ROOT_PASSWORD = [[VOCARD_MONGO_ROOT_PASSWORD]]
 """
 
 [[stack]]

@@ -54,7 +54,7 @@ services:
       komodo.skip:
     ports:
       # Bound on all interfaces but only reachable over Tailscale, because
-      # komodo.bigmt.top is gated by Caddy's (private_only) snippet on oci.
+      # komodo.example.com is gated by Caddy's (private_only) snippet on oci.
       - ${KOMODO_PORT:-9120}:9120
     environment:
       KOMODO_DATABASE_ADDRESS: mongo:27017

@@ -96,7 +96,7 @@ services:
     container_name: vocard-db
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${VOCARD_MONGO_ROOT_PASSWORD:?VOCARD_MONGO_ROOT_PASSWORD must be set}
     expose:
       - 27017
     healthcheck:

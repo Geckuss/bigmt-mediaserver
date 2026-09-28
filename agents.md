@@ -24,7 +24,7 @@
 
 - **SSH bigmt**: `ssh bigmt`
 - **SSH oci**: `ssh oci`
-- **Management**: Komodo (`https://komodo.bigmt.top`, Tailscale only) — Portainer was removed 2026-09-28
+- **Management**: Komodo (`https://komodo.example.com`, Tailscale only) — Portainer was removed 2026-09-28
 
 ## Deploys: git is the source of truth
 
@@ -32,10 +32,10 @@ Every stack is declared in this repo and deployed by **Komodo** from a git clone
 
 | | |
 |---|---|
-| Komodo UI | `https://komodo.bigmt.top` (Tailscale only, via Caddy `private_only`) |
+| Komodo UI | `https://komodo.example.com` (Tailscale only, via Caddy `private_only`) |
 | Compose files (cloned) | `/etc/komodo/stacks/<stack>/` — Periphery's `root_directory` is `/etc/komodo`, so anything outside it is invisible to Komodo |
 | Resource declarations | `komodo/resources.toml`, applied by the `bigmt` Resource Sync |
-| Web UI | `komodo.bigmt.top`, admin creds in `${CONFIGS}/komodo/core.config.toml` (root-only) |
+| Web UI | `komodo.example.com`, admin creds in `${CONFIGS}/komodo/core.config.toml` (root-only) |
 
 To change anything:
 
@@ -46,6 +46,17 @@ To change anything:
 Never edit the files under `/etc/komodo/stacks/` by hand — the next deploy overwrites them. Never let a second compose manager touch a project Komodo owns; two managers on one compose project fight.
 
 **Secrets** are not in git and not in `resources.toml`. The stacks reference `[[VARIABLE]]` names; the values live in Komodo as variables flagged secret, in the Mongo store under `${CONFIGS}/komodo`.
+
+**Infrastructure identifiers are a separate problem from credentials, and two
+files still hold the real values.** Hostnames, the tailnet name, and the host IPs
+are needed by the tools that read them: the Resource Sync applies
+`komodo/resources.toml` verbatim, and `scripts/komodo-discord-forwarder.py` is
+installed as a systemd unit. Everywhere else the repo uses placeholders
+(`example.com`, `<TAILSCALE_HOSTNAME>`, `<HOME_WAN_IP>`) and that should stay the
+default — a real value in a doc or comment is pure leak, because nothing reads it.
+The two exceptions are deliberate for now and are the known remaining leak in an
+otherwise anonymized repo. To close them: move the `links` in `resources.toml` to
+Komodo variables, and give the forwarder a `UI_BASE` env var in its unit file.
 
 **Three gotchas that cost real time here:**
 
@@ -239,8 +250,8 @@ Gale cannot drive the server: it is a GUI app, its CLI only does `-i` (install a
 
 ## Game servers: reaching them from the internet
 
-Neither game server has a public IP. bigmt is `192.168.0.40` behind the home
-router, whose WAN address is `86.50.78.255`, and the router forwards **no** game
+Neither game server has a public IP. bigmt is `<BIGMT_LAN_IP>` behind the home
+router, whose WAN address is `<HOME_WAN_IP>`, and the router forwards **no** game
 ports — verified by sending UDP from oci to that WAN address on every game port
 and confirming with `tcpdump` on bigmt that nothing arrives. So there is no route
 in, and the two games solve this in completely different ways.
@@ -258,9 +269,9 @@ port forwarding — is **unusable here because it is incompatible with BepInEx**
 and this server is modded. Enabling it would silently drop the whole mod stack.
 
 So `proxy/nginx-stream.conf` runs on oci as the `valheim-udp` container and
-forwards UDP `2456`/`2457` over the tailnet to `100.115.115.115`. `valheim.bigmt.top`
-already resolves to oci, so no DNS change was needed. Caddy cannot do this job:
-Valheim is UDP and Caddy speaks HTTP only.
+forwards UDP `2456`/`2457` over the tailnet to `<BIGMT_TAILSCALE_IP>`.
+`valheim.example.com` already resolves to oci, so no DNS change was needed.
+Caddy cannot do this job: Valheim is UDP and Caddy speaks HTTP only.
 
 **Consequences to remember:**
 
@@ -268,7 +279,7 @@ Valheim is UDP and Caddy speaks HTTP only.
   Setting it true registers the server, then Valve's A2S query to the router's WAN
   address fails and the entry disappears. It is a way to *confirm* the diagnosis,
   not a way to get a listing.
-- Players join with **Join IP** → `valheim.bigmt.top`, not the server browser.
+- Players join with **Join IP** → `valheim.example.com`, not the server browser.
 - `proxy_timeout 300s` is deliberate. nginx's 10s default would kill an idle
   player long before Valheim's own keepalive.
 - No `load_module` line for stream: in the official nginx image the core
