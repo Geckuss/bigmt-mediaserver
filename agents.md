@@ -149,6 +149,18 @@ The guard must be host-side: inside the container the bind mount looks mounted, 
 | Redis (Valkey) | internal |
 | PostgreSQL | internal |
 
+## oci: hand-managed containers
+
+oci is **not** Komodo-managed. Everything there is a plain `docker run --restart unless-stopped` or a systemd unit, so nothing in this repo deploys it. The `proxy/Caddyfile` on oci is the live copy of `proxy/Caddyfile` here — edit the repo one and copy it across; oci is the one place that is still a hand-managed host.
+
+Containers: `valheim-udp` (the Valheim UDP relay, see the game-server section) and the Pterodactyl Wings container on 25567 (see `PTERODACTYL.md`).
+
+**Docker ports on oci bypass ufw.** `DOCKER-USER` is empty, and Docker's published-port chains are evaluated ahead of ufw's rules, so `ufw default deny incoming` does **not** protect a `-p` published port. Only the OCI security list did: 9443 and 8000 stayed closed while 9000 was open to the internet. Treat the security list as the real firewall for anything published, and prefer not to publish at all.
+
+**A second Portainer instance lived here until 2026-09-28.** The migration to Komodo removed the one on bigmt; this one on oci was missed and kept running for a day with `restart: always`, publishing its admin UI on 9000 to the whole internet. Removed. `portainer_data` (288K) is still on disk as a rollback copy — it holds `portainer.db`/`portainer.key` and an old `compose/3/stack.env` with a **plaintext Valheim server password**, so it is a candidate for `docker volume rm` rather than a file to keep.
+
+**Also cleaned up:** the pre-move Valheim install at `/home/ubuntu/valheim` (exited 6 months, `tsxcloud/valheim-arm`, `compose.project=gamestack`, 1.8G — almost all of it the re-downloadable game install) and two exited Pterodactyl Wings containers. The world saves in there were the last copy of a world that never existed on bigmt; they were archived, then deleted on request. `/var/lib/pterodactyl/volumes/*` was deliberately left alone — those are live server files that Wings recreates containers around.
+
 ## Paths
 
 - `${DATA}` = `/data` — root data directory
@@ -196,7 +208,7 @@ Gale cannot drive the server: it is a GUI app, its CLI only does `-i` (install a
 
 **Why the versions matter here:** the container self-updates the Valheim build itself every ~15 minutes, unattended. A new game build can therefore break server-side plugins with nobody watching. The `valheim-updater` lines in the container log are the source of truth for "is there a new build" — not the image badge. The image itself only carries the wrapper (entrypoint, supervisord, steamcmd, updater scripts); world, mods, config and the game install are all bind mounts, so an image update never touches your data.
 
-**Watch out:** `stacks/valheim.yml` defaults `WORLD_NAME` to an older, abandoned world name that still exists on disk, while `resources.toml` pins the world actually in use. If that variable is ever lost, the server would silently start players on the wrong world.
+**Watch out — this is now a loud failure, not a silent one.** `stacks/valheim.yml` sets `SERVER_NAME` and `WORLD_NAME` with `${VALHEIM_SERVER_NAME:?...}` / `${VALHEIM_WORLD_NAME:?...}` — **no inline default**, on purpose. An older, abandoned world with a similar name still exists on the host, so a fallback would silently drop players on the wrong world. `${VAR:?}` makes compose refuse to render instead, and the values come from Komodo variables (`komodo/resources.toml` declares `VALHEIM_WORLD_NAME = [[VALHEIM_WORLD_NAME]]`). Losing the variable now stops the deploy loudly; it can no longer start the wrong world.
 
 
 ## Rules
