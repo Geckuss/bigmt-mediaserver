@@ -64,6 +64,35 @@ Komodo variables, and give the forwarder a `UI_BASE` env var in its unit file.
 - Compose does **not** remove a service you delete from the file. It prints `Found orphan containers (...)` and leaves them running. `mediastack` carries `extra_args = ["--remove-orphans"]` for exactly this reason.
 - The Resource Sync is a **partial merge**. It rewrites any field `resources.toml` does not declare, using the schema default, and omitting a field does **not** clear it. Declare `auto_pull = false` explicitly on every stack; the default is `true`, and nearly every image here is a floating tag.
 
+### Driving the Komodo API directly
+
+When the UI is not an option (it is Tailscale-only), Core's API is on
+`http://localhost:9120` from bigmt. Worth writing down, because none of this is
+guessable and all of it cost time:
+
+- **Get a token:** `POST /auth/login/LoginLocalUser` with `{username, password}`
+  from `core.config.toml` (`init_admin_username` / `init_admin_password`). The JWT
+  is **nested**: `{"type":"Jwt","data":{"jwt":"..."}}`, not at the top level.
+- **Send it as `Authorization: Bearer <jwt>`.** The header is *not* `jwt:` and
+  *not* `X-Api-Key` — those are the separate API-key schemes, and using them
+  returns `{"error":"Invalid client credentials"}` with a 200.
+- **The OpenAPI spec is embedded in the docs page**, not served as a file:
+  `curl -s http://localhost:9120/docs` has it in a
+  `<script id="api-reference" type="application/json">` block. `/openapi.yaml`
+  and `/openapi.json` are both 404. Pulling the schema from there is far faster
+  than guessing request bodies.
+- **Execute calls take names, not id lists:** `RunSync` wants `{"sync":"bigmt"}`,
+  `DeployStackIfChanged` wants `{"stack":"vocard"}`. Passing `{"ids":[...]}` gets
+  `missing field 'sync'`.
+- **A stack's environment block is `config.environment`,** not `config.env`. It
+  holds the raw `NAME = [[NAME]]` links from `resources.toml`; the resolved
+  values are only in the rendered `.env` on the host.
+- **Creating a variable is not enough on its own.** `CreateVariable` makes the
+  Komodo variable, but the stack only receives it after the Resource Sync runs,
+  and the Sync reads `master` **on GitHub** — so an unpushed commit means the
+  variable never reaches the stack. Order is: create variable, push, `RunSync`,
+  then deploy.
+
 ## Architecture
 
 ```
@@ -240,13 +269,93 @@ Gale cannot drive the server: it is a GUI app, its CLI only does `-i` (install a
 - Vocard uses the published `ghcr.io/chocomeow/vocard:v2.7.3` (pinned). It was briefly a local build of `v2.7.3b3` to get a Voicelink fix for Lavalink 4.2.x ahead of a stable tag; `v2.7.3` shipped 2026-05-09 with the Voicelink refactor, so the local build is gone. Lavalink runs as a **separate service**, which is what 2.7.3 expects — that release dropped the bundled Docker-based Lavalink setup.
 - **Vocard waits on `lavalink: service_healthy`, not `service_started`.** Lavalink needs ~4s to finish booting its plugins; v2.7.3 opens its node connection immediately and does *not* retry, so starting them together leaves a bot that looks perfectly healthy but cannot play anything. The healthcheck uses `bash /dev/tcp` because the Lavalink image has no netcat — `nc -z` would pin it at unhealthy and deadlock the stack.
 - `logging.max-history` in `settings.json` was renamed to `max_history` in v2.7.3; the live file has been updated.
-- Lavalink plugins: youtube-plugin 1.18.2, lavasrc 4.8.3, lavasearch 1.0.0, lavalyrics 1.1.0
+- Lavalink plugins: youtube-plugin `2be8e542` (a `main` **snapshot**, see below), lavasrc 4.8.3, lavasearch 1.0.0, lavalyrics 1.1.0
 - Lavalink uses yt-cipher for external YouTube cipher resolution (`remoteCipher` in application.yml)
 - Lavalink JVM tuning: `-Xmx512M -XX:+UseG1GC -XX:MaxGCPauseMillis=20`
 - Vocard Dashboard accessible at `seraphine.example.com`
 - Vocard translation keys in settings.json use flattened dot notation (e.g. `@@t_player.buttons.back@@`)
 - V Rising's image is built locally from `configs/vrising/Dockerfile` and exists in no registry, so `auto_pull`/`auto_update` must stay off for that stack. `scripts/update-vocard-lavalink.sh` bumps the Lavalink plugin jars in `${CONFIGS}`.
 - Game servers both have `stop_grace_period: 120s`: V Rising's world is 254MB and autosaves every few seconds, so a 10s default SIGTERM can land mid-write.
+
+## Vocard: two independent 2026-09-28 outages
+
+Both hit the same stack within hours of each other and neither was visible in the
+Komodo UI, so they are written down here in full.
+
+### 1. `vocard-db` could not start at all (mongo vs kernel 7.0)
+
+`mongo:8` was a floating tag. Komodo pulled a build from 2026-09-16, and when the
+container was next recreated, `mongod` refused to boot:
+
+```
+MongoDB cannot start: Linux kernel versions 6.19 and newer has a known
+incompatibility with this version of MongoDB.  (SERVER-121912)
+```
+
+The host runs `7.0.0-31-generic`, so it crash-looped (233 restarts) and the bot
+lost its database while still sitting there "Up" and gateway-connected.
+
+**This is a false positive on this host, and the pin to `mongo:8.2.12` in
+`stacks/vocard.yml` is deliberate rather than a rollback.** The real bug is a
+TCMalloc/rseq ABI break in kernel 6.19, and the kernel-side fix (Gleixner's
+"rseq: Revert to historical performance killing behaviour") is in Ubuntu
+7.0.0-28+, so this x86_64 box already has it. MongoDB's startup check parses
+`7.0.0-31` as `7.0.0`, sees it below 7.0.14, and refuses to start anyway. That is
+MongoDB's own bug, **SERVER-131779**, fixed in **8.0.35 / 8.3.14 / 9.0.3** — and
+8.3.14 was not published yet, so no image with the fix could be had. 8.2.12 is
+the build that actually wrote `mongodb_data`, so the pin also means no version
+migration in either direction.
+
+**To get off this pin, put the host on a kernel below 6.19** — `linux-image-generic`
+on noble is 6.8.0-142. NVIDIA is DKMS (580.178.04) and the box is headless
+(`multi-user.target`), so the module rebuilds itself and only a reboot is needed.
+Until then, do not "fix" this by moving to a newer mongo: every current 8.x exits on
+kernel 6.19 through 7.0.13.
+
+**The lesson is the tag, not MongoDB.** Any floating `:latest`-style tag on an
+image whose owner can add a startup guard is a way to lose a service silently.
+`mongo:8` and `mongo:8.2.12` differ only by that guard.
+
+### 2. Nothing could play (youtube-plugin vs YouTube)
+
+With the database back, the next layer showed: search and metadata worked, but
+**every** track failed at stream resolution — 0 successful plays in 21 hours.
+
+```
+AllClientsFailedException: (yts.version: 1.18.2) All clients failed to load the item.
+  TVHTML5             The page needs to be reloaded
+  ANDROID_VR/MUSIC    This video requires login
+  IOS                 Invalid status code for player api response: 400
+  MWEB                Read timed out / 403
+  WEB                 No supported audio streams available, available types:
+  WEB_EMBEDDED_PLAYER This video is unavailable
+```
+
+`youtube-plugin` 1.18.2 (2026-07-27) was, and still is, the newest published
+release. YouTube changed player behaviour after it; the `TVHTML5` playability fix
+(youtube-source PR #233, issue #241) only ever landed on `main`. The maintainer's
+standing advice is to use a remote cipher server, which `remoteCipher` already
+does. The fix is therefore the `main` snapshot, pinned by commit hash so a restart
+cannot silently pull different code.
+
+Two things make this fail *quietly*, and both cost time here:
+
+- **Search still succeeds.** `loadtracks` returns a perfectly good `loadType:
+  search`/`track` because formats are resolved lazily, at play time. Checking the
+  API "looks fine" while nothing can play. Confirm a real stream, not a search.
+- **The bot does not report it well.** A failed play surfaces in Discord as a bare
+  `Client [WEB_EMBEDDED_PLAYER] failed: This video is unavailable` with no hint
+  that all seven clients died.
+
+After changing the plugin, restart `lavalink` **and then `vocard`** — the bot does
+not re-register with the node on its own. Removing the stale jar from
+`${CONFIGS}/vocard/lavalink/plugins/` matters too, since that directory is
+bind-mounted and Lavalink loads whatever is in it.
+
+`scripts/update-vocard-lavalink.sh` now skips snapshot pins instead of reverting
+them. It used to grep the version as `[0-9][0-9.]*`, which truncated
+`2be8e542...` to `2` and would have rewritten the coordinate to
+`1.18.2be8e542...` — i.e. running the updater is what would have re-broken it.
 
 ## Game servers: reaching them from the internet
 

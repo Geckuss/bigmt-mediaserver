@@ -78,8 +78,28 @@ plugins:
 
 lavalink:
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
-      snapshot: false
+    # A `main` snapshot, not a release, and deliberately so. 1.18.2 (2026-07-27)
+    # is still the newest published release, but YouTube changed player behaviour
+    # after it and every client then fails to resolve a playable stream:
+    #   AllClientsFailedException: (yts.version: 1.18.2) All clients failed
+    #   TVHTML5            The page needs to be reloaded
+    #   ANDROID_VR/MUSIC   This video requires login
+    #   IOS                Invalid status code for player api response: 400
+    #   WEB                No supported audio streams available
+    #   WEB_EMBEDDED_PLAYER This video is unavailable
+    # Search and metadata keep working, so this looks healthy until playback is
+    # actually attempted. That is upstream breakage, not a misconfiguration: the
+    # TVHTML5 playability fix (youtube-source PR #233, issue #241) only ever
+    # landed on `main`. The maintainer's standing advice is to use a remote cipher
+    # server, which remoteCipher below already does.
+    #
+    # Pinned by commit hash rather than a rolling -SNAPSHOT, so this stays
+    # reproducible: the snapshots repo serves that exact coordinate forever, and a
+    # restart cannot silently pull different plugin code. Bump it deliberately when
+    # a release catches up, and re-check with scripts/update-vocard-lavalink.sh
+    # (which skips this entry rather than reverting it -- see the note there).
+    - dependency: "dev.lavalink.youtube:youtube-plugin:2be8e542d3f6f178e048dca565892684c2e40177"
+      snapshot: true
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
       snapshot: false
     - dependency: "com.github.topi314.lavasearch:lavasearch-plugin:1.0.0"

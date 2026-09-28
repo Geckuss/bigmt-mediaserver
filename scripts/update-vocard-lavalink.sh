@@ -38,7 +38,12 @@ latest_version() {
 
 current_version() {
     # $1 = groupId:artifactId; prints the version pinned in server application.yml
-    ssh "$HOST" "grep -o '$1:[0-9][0-9.]*' $SERVER_APP_YML | head -1" \
+    # Returns the whole version token, which may be a commit-hash snapshot rather
+    # than a dotted release number. The grep deliberately does not restrict
+    # itself to `[0-9][0-9.]*`: that would truncate a commit hash to its leading
+    # digit ("2be8e542..." -> "2") and the sed below would then rewrite the prefix
+    # and leave the nonsense coordinate "1.18.2be8e542...".
+    ssh "$HOST" "grep -o '$1:[^[:space:]\"]*' $SERVER_APP_YML | head -1" \
         | sed "s|$1:||" | head -1
 }
 
@@ -54,6 +59,15 @@ update-vocard() {
         new="$(latest_version "$mpath")"
         if [[ -z "$cur" ]]; then
             echo "!! $a: no version pinned in application.yml (skipping)"
+            continue
+        fi
+        if [[ "$cur" =~ ^[0-9]+[0-9.]*$ ]]; then :; else
+            # A commit-hash snapshot pin. Only a deliberate manual bump should
+            # move these -- see the note on the youtube-plugin entry in
+            # configs/vocard/lavalink/application.yml. Reverting it to whatever
+            # release happens to be newest is exactly what broke playback on
+            # 2026-09-28.
+            echo "== $a: pinned to snapshot $cur (skipping, bump by hand)"
             continue
         fi
         if [[ -z "$new" ]]; then
