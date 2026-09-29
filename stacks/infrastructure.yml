@@ -18,6 +18,17 @@ services:
     image: pihole/pihole:latest
     container_name: pihole
     network_mode: host
+    # FTL raises its own priority to -10 (misc.nice) so DNS stays responsive
+    # under load, but without CAP_SYS_NICE the raise fails and it logs
+    # "process priority remains at 0" at every start. It also backs off recursion
+    # when the 15min load average exceeds nproc, so on a busy host this is the
+    # difference between DNS degrading gracefully and not.
+    #
+    # Only SYS_NICE. FTL also wants CAP_SYS_TIME for its NTP client, but that
+    # capability can set the system clock and is not worth granting just to
+    # validate upstream timestamps. FTL logs the omission and carries on.
+    cap_add:
+      - SYS_NICE
     environment:
       - TZ=${TZ:-Europe/Helsinki}
       - WEBPASSWORD=${PIHOLE_PASSWORD}
