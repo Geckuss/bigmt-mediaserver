@@ -154,6 +154,17 @@ Backrest is alone because its drives are only plugged in when needed, and the ho
 - `restart: "no"` — Docker never auto-starts it, not even at boot
 - `backrest-guard.service` runs `/usr/local/sbin/backrest-guard.sh`, which checks `mountpoint -q /mnt/backup-5tb` and starts it only if real
 - after plugging a drive in: `sudo systemctl start backrest-guard`
+- **That unit must not have `RemainAfterExit=yes`.** It did, and the consequence
+  was a silent no-op: a `Type=oneshot` with `RemainAfterExit` latches into
+  `active (exited)` after its *first ever* run and stays there, so every later
+  `systemctl start` returns 0 without running anything. `SuccessExitStatus=0 1`
+  (which must stay — an unplugged drive is normal and must not fail boot) also
+  means a latched unit reports success whether or not it did anything, so there
+  is no feedback either way. Removed 2026-09-29. The unit lives only on the host
+  at `/etc/systemd/system/backrest-guard.service`, **not in this repo**, so
+  nothing here will catch it being re-added — if `start` ever stops working
+  again, check that line first. `daemon-reload` does not clear an existing latch
+  either, so a fix needs `systemctl stop` before `start` will run it again.
 
 The guard must be host-side: inside the container the bind mount looks mounted, and Docker auto-creates missing bind sources, so neither a mountpoint test nor a marker file works from in there. Without it, restic inits a brand new empty repo on the root SSD and reports every plan as successful.
 
