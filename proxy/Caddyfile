@@ -40,10 +40,12 @@ radarr.example.com {
     reverse_proxy http://<TAILSCALE_HOSTNAME>:7878
 }
 qbittorrent.example.com {
+    import private_only
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8080
 }
 bazarr.example.com {
+    import private_only
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:6767
 }
@@ -52,6 +54,7 @@ jellyseerr.example.com {
     reverse_proxy http://<TAILSCALE_HOSTNAME>:5055
 }
 prowlarr.example.com {
+    import private_only
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9696
 }
@@ -62,6 +65,7 @@ komodo.example.com {
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9120
 }
 cockpit.example.com {
+    import private_only
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9090
 }
@@ -71,18 +75,30 @@ immich.example.com {
 }
 pihole.example.com {
     import security_headers
-    redir / /admin permanent
-    reverse_proxy http://<TAILSCALE_HOSTNAME>:80
+    # Deliberately NOT using the private_only snippet here: this one needs the
+    # gate inside a handle block, because the redirect to /admin has to be
+    # skipped for rejected requests too. Same 100.64.0.0/10 + WAN-IP test.
+    @not_private not remote_ip 100.64.0.0/10 86.50.78.255/32
+    handle @not_private {
+        respond "Forbidden" 403
+    }
+    handle {
+        redir / /admin permanent
+        reverse_proxy http://<TAILSCALE_HOSTNAME>:80
+    }
 }
 backrest.example.com {
+    import private_only
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:9898
 }
 uptime.example.com {
+    import private_only
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:3001
 }
 scrutiny.example.com {
+    import private_only
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8079
 }
@@ -93,6 +109,29 @@ seafile.example.com {
 seraphine.example.com {
     import security_headers
     reverse_proxy http://<TAILSCALE_HOSTNAME>:8050
+}
+
+# Pterodactyl panel. Not proxied to bigmt: the panel and PHP-FPM run on oci
+# itself, and the game server it manages lives on a different tailnet node
+# (<PTERODACTYL_TAILSCALE_HOSTNAME>), hence the tls_server_name override.
+pterodactyl.example.com {
+    @wings path /api/servers /api/servers/* /api/system /api/system/* /api/transfers /api/transfers/* /api/update /api/update/* /upload/* /download/*
+    handle @wings {
+        reverse_proxy localhost:8080
+    }
+
+    handle {
+        root * /var/www/pterodactyl/public
+        php_fastcgi unix//run/php/php8.3-fpm.sock
+        file_server
+    }
+}
+pterodactyl.example.com:8443 {
+    reverse_proxy https://<PTERODACTYL_TAILSCALE_HOSTNAME>:8080 {
+        transport http {
+            tls_server_name <PTERODACTYL_TAILSCALE_HOSTNAME>
+        }
+    }
 }
 :80 {
     respond "Not Found" 404
