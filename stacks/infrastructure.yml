@@ -60,11 +60,16 @@ services:
       - ${CONFIGS}/scrutiny/config:/opt/scrutiny/config
       - ${CONFIGS}/scrutiny/influxdb:/opt/scrutiny/influxdb
     devices:
-      # by-id paths, not /dev/sdX letters: the 12TB USB dock was once sda, and
-      # it re-surfaced as sdd after the ZFS migration. serially pinned.
-      - /dev/disk/by-id/ata-Samsung_SSD_860_EVO_250GB_S4CJNZFN111443J   # boot SSD
-      - /dev/disk/by-id/ata-ST8000VX004-2M1101_WSD6B0H7                 # 8TB mirror
-      - /dev/disk/by-id/ata-ST8000VX004-2M1101_WSD64YYC                 # 8TB mirror
+      # Host by-id (serial-pinned) mapped to a CONTAINER-side /dev/sdX name.
+      # Scrutiny detects disks via `smartctl --scan`, which cannot see bare
+      # by-id device nodes; giving the container /dev/sda|b|c nodes lets the
+      # scan find them. The host half stays serial-pinned so a letter reshuffle
+      # (the 12TB dock went sda -> sdd across the ZFS migration) cannot drop a
+      # drive, and Scrutiny registers each disk by WWN so the container names
+      # are irrelevant to identity.
+      - /dev/disk/by-id/ata-Samsung_SSD_860_EVO_250GB_S4CJNZFN111443J:/dev/sdb   # boot SSD
+      - /dev/disk/by-id/ata-ST8000VX004-2M1101_WSD6B0H7:/dev/sda                 # 8TB mirror
+      - /dev/disk/by-id/ata-ST8000VX004-2M1101_WSD64YYC:/dev/sdc                 # 8TB mirror
     environment:
       - TZ=${TZ:-Europe/Helsinki}
     restart: unless-stopped
