@@ -168,6 +168,31 @@ Backrest is alone because its drives are only plugged in when needed, and the ho
 
 The guard must be host-side: inside the container the bind mount looks mounted, and Docker auto-creates missing bind sources, so neither a mountpoint test nor a marker file works from in there. Without it, restic inits a brand new empty repo on the root SSD and reports every plan as successful.
 
+**`configs/backrest/config.json` is a sanitized bootstrap copy, not the live
+config.** It exists for `DISASTER-RECOVERY.md` and diverges from
+`${CONFIGS}/backrest/config/config.json` on the host — that one also carries
+real repo passwords, a Discord webhook URL, bcrypt hashes and an ed25519 host
+key. **Never `cp` the repo file over the live one**; it would clobber all of
+them. Edit the live file surgically instead.
+
+**Put notification hooks on the repo only, never on a plan.** Backrest's
+`TasksTriggeredByEvent` walks repo hooks *and then* plan hooks, both firing on
+a match, so a plan hook overlapping a repo hook posts every event twice — and
+that is exactly what was happening for `critical`. A repo hook already covers
+every plan, so the plan-level hook bought nothing except duplicates. Add any
+new condition (`CONDITION_PRUNE_SUCCESS` was the one) to the repo hook.
+
+Two hook-template facts, both learned the hard way. `{{ .Summary }}` prints
+`Total duration: 35704.901828028s` because `SnapshotStats.TotalDuration` is a
+`float64`, not a duration — `.Duration` is a real `time.Duration`, so
+`.FormatDuration` is what you want. And the template function set is *only*
+`HookVars`' own methods: no Sprig, so `default`, `trim` and friends do not
+exist. `{{ if .Plan.Id }}` with an `{{ else }}` is the fallback.
+
+The template is verified by rendering it, not by reading it. Copy
+`configs/backrest/config.json` to a scratch dir, render the `template` string
+against a stub mirroring `HookVars`, and check no `{{` survives in the output.
+
 ### homepage (2)
 
 | Service | Port |

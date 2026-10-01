@@ -17,6 +17,25 @@
 #   backrest-guard.service         starts it at boot, but only if it is mounted
 #
 # After plugging a drive in:  sudo systemctl start backrest-guard
+#
+# UNMOUNTED ON PURPOSE -- `tertiary-1tb` in configs/backrest/config.json points
+# at /repos/tertiary, and there is no bind mount for it below. That is the
+# exact hazard described above, so the plan is left unschedulable and offline
+# (all plans here are `schedule.disabled: true`) rather than being "fixed" by
+# mounting something. Until a real drive is mounted there:
+#
+#   * do NOT run or start Backrest with the intent of backing up to it
+#   * do NOT add a bind mount to an unmounted host path -- that reintroduces
+#     the silent empty-repo-on-root-SSD failure with no test to catch it
+#
+# There is no third backup drive on this host today: the two 7.3T disks are
+# linux_raid_member partitions, and fstab declares only LABEL=backup-5tb.
+# /mnt/backup-500gb holds a stale encrypted repo with 0 snapshots and lives on
+# the root SSD -- do not point anything at it.
+#
+# To enable it for real: attach a drive, add its fstab entry, add the bind
+# mount here, extend backrest-guard.sh to require that mountpoint, then set
+# `autoInitialize`/password for tertiary-1tb in the live config.
 
 services:
   backrest:

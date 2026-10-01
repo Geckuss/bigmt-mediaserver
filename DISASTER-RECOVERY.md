@@ -165,9 +165,35 @@ docker run -d --name backrest-bootstrap \
   garethgeorge/backrest:latest
 ```
 
+The template mirrors the live config: 3 repos and 4 plans. Only `primary-5tb`
+is mounted by the bootstrap `docker run` above, so `secondary-1tb` and
+`tertiary-1tb` (and their two `critical-*` plans) will show as unavailable
+until you add `-v /mnt/backup-1tb:/repos/secondary` or just ignore them —
+nothing is lost either way, since `DISASTER-RECOVERY.md` restores from
+`primary-5tb`.
+
+**Two fields are deliberately absent, and adding them back with placeholders
+would break bootstrap.** Backrest validates its config at startup and refuses
+to run if it fails, so a plausible-looking placeholder is worse than nothing:
+
+- **No `auth` block.** Live holds bcrypt hashes; the copy omits the block
+  entirely so the UI prompts for first-run account creation. A
+  `"passwordBcrypt": "<BCRYPT_HASH>"` stub validates fine but makes login
+  impossible, and the setup prompt never appears — you would be locked out.
+- **No `sync` block.** Live holds a real ed25519 host private key.
+  `cryptoutil.NewPrivateKey` requires base64 that decodes to a 32-byte seed
+  *and* a matching public key, so any placeholder makes startup fail outright.
+  Omitting it lets Backrest generate a fresh identity via
+  `PopulateRequiredFields`.
+
+The two newer repos also carry `"autoInitialize": true` instead of a `guid`.
+`validateRepo` requires a `guid` to be exactly 64 hex characters, and a
+placeholder would both fail that check and imply a restic repo that does not
+exist yet.
+
 Then in the Backrest web UI (`http://<server-ip>:9898`):
 
-1. **Create an account** — Backrest will prompt for initial user setup on first launch (the sanitized config has no valid auth)
+1. **Create an account** — Backrest will prompt for initial user setup on first launch (the sanitized config has no `auth` block, which is what makes this prompt appear)
 2. **Edit the repo** `primary-5tb` — fill in the real restic repo password (from your password manager)
 3. **(Optional)** Update the Discord webhook URL if you want notifications
 4. **Browse snapshots** for each plan and restore:

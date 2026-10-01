@@ -1,6 +1,6 @@
 {
-  "modno": 6,
-  "version": 4,
+  "modno": 22,
+  "version": 6,
   "instance": "bigmt-backrest",
   "repos": [
     {
@@ -27,14 +27,57 @@
             "CONDITION_ANY_ERROR",
             "CONDITION_SNAPSHOT_SUCCESS",
             "CONDITION_CHECK_SUCCESS",
-            "CONDITION_FORGET_SUCCESS"
+            "CONDITION_FORGET_SUCCESS",
+            "CONDITION_PRUNE_SUCCESS"
           ],
           "actionDiscord": {
             "webhookUrl": "<DISCORD_WEBHOOK_URL>",
-            "template": "{{ .Summary }}"
+            "template": "**{{ if .Plan.Id }}{{ .Plan.Id }}{{ else }}{{ if .Repo }}{{ .Repo.Id }}{{ end }}{{ end }}** — {{ .EventName .Event }}\n{{- if .Error }}\n```\n{{ .Error }}\n```\n{{- end }}\n{{- if .SnapshotStats }}\n{{ if .SnapshotStats.DataAdded }}Added **{{ .FormatSizeBytes .SnapshotStats.DataAdded }}** · {{ else }}No new data · {{ end }}{{ .SnapshotStats.TotalFilesProcessed }} files · {{ .FormatDuration .Duration }}\n{{- end }}"
           }
         }
       ],
+      "commandPrefix": {}
+    },
+    {
+      "id": "secondary-1tb",
+      "uri": "/repos/secondary",
+      "password": "<RESTIC_REPO_PASSWORD>",
+      "autoInitialize": true,
+      "autoUnlock": true,
+      "prunePolicy": {
+        "schedule": {
+          "disabled": true,
+          "clock": "CLOCK_LAST_RUN_TIME"
+        },
+        "maxUnusedPercent": 10
+      },
+      "checkPolicy": {
+        "schedule": {
+          "disabled": true,
+          "clock": "CLOCK_LAST_RUN_TIME"
+        }
+      },
+      "commandPrefix": {}
+    },
+    {
+      "id": "tertiary-1tb",
+      "uri": "/repos/tertiary",
+      "password": "<RESTIC_REPO_PASSWORD>",
+      "autoInitialize": true,
+      "autoUnlock": true,
+      "prunePolicy": {
+        "schedule": {
+          "disabled": true,
+          "clock": "CLOCK_LAST_RUN_TIME"
+        },
+        "maxUnusedPercent": 10
+      },
+      "checkPolicy": {
+        "schedule": {
+          "disabled": true,
+          "clock": "CLOCK_LAST_RUN_TIME"
+        }
+      },
       "commandPrefix": {}
     }
   ],
@@ -46,31 +89,52 @@
         "/userdata/configs",
         "/userdata/immich-uploads"
       ],
+      "excludes": [
+        "/userdata/configs/jellyfin-config/data/introskipper"
+      ],
       "schedule": {
         "disabled": true,
         "clock": "CLOCK_LOCAL"
       },
       "retention": {
-        "policyTimeBucketed": {
-          "weekly": 3,
-          "monthly": 3
-        }
+        "policyKeepLastN": 5
+      }
+    },
+    {
+      "id": "critical-secondary",
+      "repo": "secondary-1tb",
+      "paths": [
+        "/userdata/configs",
+        "/userdata/immich-uploads"
+      ],
+      "excludes": [
+        "/userdata/configs/jellyfin-config/data/introskipper"
+      ],
+      "schedule": {
+        "disabled": true,
+        "clock": "CLOCK_LOCAL"
       },
-      "hooks": [
-        {
-          "conditions": [
-            "CONDITION_FORGET_SUCCESS",
-            "CONDITION_CHECK_SUCCESS",
-            "CONDITION_PRUNE_SUCCESS",
-            "CONDITION_SNAPSHOT_SUCCESS",
-            "CONDITION_ANY_ERROR"
-          ],
-          "actionDiscord": {
-            "webhookUrl": "<DISCORD_WEBHOOK_URL>",
-            "template": "{{ .Summary }}"
-          }
-        }
-      ]
+      "retention": {
+        "policyKeepLastN": 5
+      }
+    },
+    {
+      "id": "critical-tertiary",
+      "repo": "tertiary-1tb",
+      "paths": [
+        "/userdata/configs",
+        "/userdata/immich-uploads"
+      ],
+      "excludes": [
+        "/userdata/configs/jellyfin-config/data/introskipper"
+      ],
+      "schedule": {
+        "disabled": true,
+        "clock": "CLOCK_LOCAL"
+      },
+      "retention": {
+        "policyKeepLastN": 5
+      }
     },
     {
       "id": "media",
@@ -79,16 +143,15 @@
         "/userdata/media"
       ],
       "excludes": [
-        "/userdata/media/gallery"
+        "/userdata/media/gallery",
+        "/userdata/media/shows/large"
       ],
       "schedule": {
         "disabled": true,
         "clock": "CLOCK_LOCAL"
       },
       "retention": {
-        "policyTimeBucketed": {
-          "monthly": 2
-        }
+        "policyKeepLastN": 3
       }
     }
   ]
