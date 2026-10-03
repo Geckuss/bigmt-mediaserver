@@ -19,6 +19,7 @@ services:
     # Keep the original entrypoint, but make every child inherit nice +19
     # and idle I/O, including restic backup, check, prune and restore.
     entrypoint: ["/sbin/tini", "--", "nice", "-n", "19", "ionice", "-c", "3", "/docker-entrypoint"]
+    command: ["/backrest"]
     ports:
       - ${BACKREST_PORT:-9898}:9898
     volumes:
