@@ -61,8 +61,8 @@ graph LR
 
     subgraph Storage
         SSD["128GB SSD<br/>/  (boot)"]
-        HDD["12TB WD HDD<br/>/data"]
-        Backup["5TB Seagate USB<br/>/mnt/backup-5tb"]
+        HDD["2 x 8TB ZFS disks<br/>/data"]
+        Backup["12TB WD USB backup<br/>/mnt/backup-12tb"]
     end
 
     GPU["GTX 1070"]
@@ -102,8 +102,9 @@ graph LR
 | **RAM**           | 16 GB                                          |
 | **GPU**           | NVIDIA GeForce GTX 1070 (8 GB)                 |
 | **Boot disk**     | SanDisk 128 GB SSD (`/`)                       |
-| **Data disk**     | WD 12 TB HDD (`/data`)                         |
-| **Backup disk**   | Seagate 5 TB Expansion (`/mnt/backup-5tb`)     |
+| **Data disks**    | Two 8 TB disks, ZFS pool (`/data`)              |
+| **Backup disk**   | WD 12 TB USB (`/mnt/backup-12tb`), existing files preserved |
+| **Legacy backup** | Seagate 5 TB Expansion (`/mnt/backup-5tb`)     |
 | **Backup disk 2** | 1 TB (not always connected, `/mnt/backup-1tb`) |
 
 ## Services
@@ -139,7 +140,7 @@ Kept out of `mediastack` on purpose: Pi-hole going down kills LAN DNS *including
 | ------------ | -------------------------- | ----- |
 | **Backrest** | Backup management (restic) | 9898  |
 
-Its own project with `restart: "no"`, and its start is gated on the backup drive actually being mounted by `backrest-guard.service` — see the header in `stacks/backrest.yml` for why that check has to live on the host.
+Its own project with `restart: "no"`. The host guard verifies the 12 TB backup filesystem's UUID before startup or Komodo deployment. See [Backup](#backup) for installation and resource limits.
 
 ### Seafile Stack (`stacks/seafile.yml`)
 
@@ -425,15 +426,59 @@ Cockpit v352 is installed natively (not containerized) for server management. Ac
 
 **Repositories:**
 
-- `/mnt/backup-5tb` — primary (5 TB Seagate Expansion)
-- `/mnt/backup-1tb` — secondary (1 TB, not always connected)
+- `/mnt/backup-12tb/restic-backrest` — `backup-12tb`, a dedicated directory alongside the disk's existing data. Never use the disk root as the repo or wipe the old files just to initialize restic.
+- Legacy 5 TB / 1 TB repositories and plans are preserved but not mounted by the current stack. Its read-only `/repos` parent prevents absent repositories from being initialized on the root disk.
 
 **Backup plans:**
 
-| Plan         | Sources                                 | Retention           | Cooldown |
-| ------------ | --------------------------------------- | ------------------- | -------- |
-| **critical** | Service configs, Immich uploads         | 3 weekly, 3 monthly | 30 days  |
-| **media**    | Media library (excludes Immich gallery) | 2 monthly           | 90 days  |
+| Plan | Sources | Retention | Schedule |
+| ---- | ------- | --------- | -------- |
+| **critical-12tb** | Service configs, Immich uploads; excludes Intro Skipper data and Backrest cache/operation database/rollback configs | Last 5 snapshots | Manual |
+| **media-12tb** | Entire media library, including `shows/large`, excluding Immich gallery (covered by critical) | Last 3 snapshots | Manual |
+
+The live config contains credentials and identity keys. **Never replace it with the sanitized template.** New repository passwords must be saved outside the server as well, in a password manager; losing the server config must not mean losing access to its backups.
+
+### Mount and startup safety
+
+Install `scripts/backrest-guard.sh` as `/usr/local/sbin/backrest-guard.sh`
+and `configs/backrest/backrest-guard.service` as
+`/etc/systemd/system/backrest-guard.service`, then run `sudo systemctl daemon-reload`.
+Store the disk's actual filesystem UUID in `/etc/backrest-disk.uuid`, mode `600`.
+Use that UUID (not its old `data` label or an unstable `/dev/sdX`) in fstab:
+
+```fstab
+UUID=<BACKUP_12TB_FILESYSTEM_UUID> /mnt/backup-12tb ext4 noauto,nofail,nosuid,nodev,x-systemd.device-timeout=5s 0 2
+```
+
+Mount with `sudo mount /mnt/backup-12tb`, verify the disk, and create
+`restic-backrest` on it before deploying. Komodo's `pre_deploy` runs the guard's
+`check` mode; do not bypass it with a manual Compose deploy. After deployment,
+`sudo systemctl start backrest-guard` starts the existing container and refuses
+outdated container bindings. Stop Backrest before unmounting or disconnecting the
+disk; this is a startup guard, not a hot-unplug monitor.
+
+### Compression and service impact
+
+In Backrest's repository settings, use additional flag `--compression=off`,
+CPU priority **Low**, I/O priority **Idle**, and environment variables
+`GOMAXPROCS=1` / `RESTIC_READ_CONCURRENCY=1`. These settings apply to all restic
+commands for that repository. Compression off only affects newly written blobs;
+existing compressed backups remain readable without rewriting them.
+
+The stack also enforces nice **+19**, Idle I/O, one CPU core worth of execution
+(`cpus: 1.0`), and minimum CPU shares. The original image entrypoint is preserved.
+Children inherit priority, so backups, checks, pruning and restores are covered.
+Restic retains encryption, deduplication and data verification.
+
+**This minimizes impact, not guarantees zero impact.** ZFS issues some disk I/O
+from kernel threads, so `ionice` is not a reliable source-disk bandwidth limit.
+The CPU ceiling does not cap disk throughput or memory. Observe application
+latency, memory and disk load during the first backup; if contention remains,
+use measured container block-I/O rate limits and/or an idle-hours schedule.
+Restic's upload bandwidth flag is not a general local-disk read throttle.
+Run critical first, then media, rather than starting both manually at once.
+Keep automatic prune/check disabled until an intentional maintenance schedule is
+chosen. Verify a restore before deleting any old disk data.
 
 ## Custom Scripts
 

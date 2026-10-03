@@ -5,7 +5,7 @@
 ### Prerequisites
 
 - Ubuntu 24.04 LTS installer USB
-- Access to the 5 TB backup drive (`/mnt/backup-5tb`) with restic backups
+- Access to a verified backup drive: the new 12 TB repo (`/mnt/backup-12tb/restic-backrest`) or the legacy 5 TB repo (`/mnt/backup-5tb`)
 - The restic repository password (stored in Backrest config / password manager)
 - This git repo
 
@@ -35,14 +35,19 @@ sudo apt install -y curl ca-certificates git tmux btop lm-sensors smartmontools 
 
 ### Step 3: Mount data drive
 
-The 12 TB WD HDD is labeled `data`. Add to `/etc/fstab`:
+The 12 TB WD HDD labeled `data` is now a backup disk, not the live data disk.
+Live `/data` is a ZFS pool on two 8 TB disks. Do not mount the old `data` label
+at `/data` or format that disk: it contains old files and the new backup target.
+Recover/import the ZFS pool, or prepare replacement data storage at `/data`,
+before proceeding. The following historical ext4 commands are only for a
+replacement **data** disk, with a different label:
 
 ```bash
 # Verify the drive
-sudo blkid | grep data
+sudo blkid
 
 # Add to fstab
-echo 'LABEL=data /data auto nosuid,nodev,nofail,x-gvfs-show 0 0' | sudo tee -a /etc/fstab
+echo 'LABEL=data-replacement /data ext4 defaults 0 2' | sudo tee -a /etc/fstab
 sudo mkdir -p /data
 sudo mount -a
 ```
@@ -50,12 +55,18 @@ sudo mount -a
 If the data drive is dead/replaced, format it first:
 
 ```bash
-sudo mkfs.ext4 -L data /dev/sdX1
+sudo mkfs.ext4 -L data-replacement /dev/sdX1
 ```
 
 ### Step 4: Mount backup drive
 
 Plug in the 5 TB Seagate Expansion and mount it:
+
+For the new 12 TB repository instead, mount the verified UUID at
+`/mnt/backup-12tb` and use `/mnt/backup-12tb/restic-backrest` as the bootstrap
+container's `/repos/12tb` binding below. Keep existing disk contents.
+Select `backup-12tb` and the `critical-12tb` / `media-12tb` plans when restoring.
+See README's [mount safety instructions](README.md#mount-and-startup-safety).
 
 ```bash
 sudo mkdir -p /mnt/backup-5tb
@@ -152,6 +163,7 @@ sudo mkdir -p /data/media/gallery /data/downloads
 # Start Backrest standalone (before the full stack is deployed)
 docker run -d --name backrest-bootstrap \
   -p 9898:9898 \
+  --tmpfs /repos:ro,size=1m \
   -v /data/backups/configs/backrest/data:/data \
   -v /data/backups/configs/backrest/config:/config \
   -v /data/backups/configs/backrest/cache:/cache \
@@ -165,7 +177,8 @@ docker run -d --name backrest-bootstrap \
   garethgeorge/backrest:latest
 ```
 
-The template mirrors the live config: 3 repos and 4 plans. Only `primary-5tb`
+The template includes legacy repos/plans plus the new 12 TB repo and plans.
+It is a bootstrap template, not a replacement for the live config. Only `primary-5tb`
 is mounted by the bootstrap `docker run` above, so `secondary-1tb` and
 `tertiary-1tb` (and their two `critical-*` plans) will show as unavailable
 until you add `-v /mnt/backup-1tb:/repos/secondary` or just ignore them —
@@ -186,7 +199,10 @@ to run if it fails, so a plausible-looking placeholder is worse than nothing:
   Omitting it lets Backrest generate a fresh identity via
   `PopulateRequiredFields`.
 
-The two newer repos also carry `"autoInitialize": true` instead of a `guid`.
+Uninitialized template repos carry `"autoInitialize": true` instead of a `guid`.
+When restoring an existing repo, enter its actual password before running any
+operation, and do not initialize a new empty repo if your intended backup is
+missing. Verify the host mount and repository contents first.
 `validateRepo` requires a `guid` to be exactly 64 hex characters, and a
 placeholder would both fail that check and imply a restic repo that does not
 exist yet.

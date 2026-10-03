@@ -152,21 +152,32 @@ Out of mediastack on purpose: Pi-hole going down kills LAN DNS *including for wh
 Backrest is alone because its drives are only plugged in when needed, and the host-side guard has to own its lifecycle:
 
 - `restart: "no"` — Docker never auto-starts it, not even at boot
-- `backrest-guard.service` runs `/usr/local/sbin/backrest-guard.sh`, which checks `mountpoint -q /mnt/backup-5tb` and starts it only if real
-- after plugging a drive in: `sudo systemctl start backrest-guard`
+- `backrest-guard.service` runs `/usr/local/sbin/backrest-guard.sh`, which verifies `/mnt/backup-12tb` against the host-only `/etc/backrest-disk.uuid`, requires a writable mount and its `restic-backrest` directory, and refuses outdated container bindings.
+- after plugging a drive in: `sudo mount /mnt/backup-12tb`, then `sudo systemctl start backrest-guard`
 - **That unit must not have `RemainAfterExit=yes`.** It did, and the consequence
   was a silent no-op: a `Type=oneshot` with `RemainAfterExit` latches into
   `active (exited)` after its *first ever* run and stays there, so every later
   `systemctl start` returns 0 without running anything. `SuccessExitStatus=0 1`
   (which must stay — an unplugged drive is normal and must not fail boot) also
   means a latched unit reports success whether or not it did anything, so there
-  is no feedback either way. Removed 2026-09-29. The unit lives only on the host
-  at `/etc/systemd/system/backrest-guard.service`, **not in this repo**, so
-  nothing here will catch it being re-added — if `start` ever stops working
+  is no feedback either way. Removed 2026-09-29. The unit is installed at
+  `/etc/systemd/system/backrest-guard.service`; its template now lives in
+  `configs/backrest/backrest-guard.service`. If `start` ever stops working
   again, check that line first. `daemon-reload` does not clear an existing latch
   either, so a fix needs `systemctl stop` before `start` will run it again.
 
 The guard must be host-side: inside the container the bind mount looks mounted, and Docker auto-creates missing bind sources, so neither a mountpoint test nor a marker file works from in there. Without it, restic inits a brand new empty repo on the root SSD and reports every plan as successful.
+
+The 12 TB disk still contains old data. Only
+`/mnt/backup-12tb/restic-backrest` is the new repository; do not wipe the disk.
+`critical-12tb` keeps 5 snapshots and `media-12tb` keeps 3, both manual.
+The media plan includes `shows/large`; Immich gallery belongs to critical.
+Legacy repos/plans are preserved but not mounted in the new stack; a read-only
+`/repos` parent prevents their initialization onto container/root storage.
+Compression is off for new writes. The stack inherits nice +19 and Idle I/O,
+caps CPU execution at one core, and sets single-thread/read concurrency.
+This minimizes contention but does not guarantee zero impact, especially for
+ZFS source I/O. See README's Backup section.
 
 **`configs/backrest/config.json` is a sanitized bootstrap copy, not the live
 config.** It exists for `DISASTER-RECOVERY.md` and diverges from
@@ -252,7 +263,8 @@ Containers: `valheim-udp` (the Valheim UDP relay, see the game-server section) a
 - `${CONFIGS}/valheim/` — Valheim config, worlds, and BepInEx plugins (see the Valheim section)
 - `/data/media/recorded` — manually recorded content
 - `/data/downloads` — qBittorrent downloads, HandBrake I/O
-- `/mnt/backup-5tb` — primary backup drive (not always connected)
+- `/mnt/backup-12tb/restic-backrest` — new 12 TB backup repository alongside existing disk contents
+- `/mnt/backup-5tb` — legacy backup drive (not mounted in the new stack)
 - `/mnt/backup-1tb` — secondary backup drive (not always connected)
 
 ## Valheim: mods

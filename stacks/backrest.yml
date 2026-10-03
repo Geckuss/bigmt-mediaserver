@@ -1,41 +1,11 @@
 # Backrest, in its own project on purpose.
 #
-# The backup drives are only plugged in when needed, and their host mount
-# points always exist. That means an unplugged drive looks to the container
-# like an empty but writable directory, and restic will happily `init` a
-# brand new empty repo there -- on the 172G root SSD -- and then report every
-# plan as successful. Silent, and it is exactly the failure this project
-# split exists to prevent.
-#
-# The guard therefore lives on the host, because a container-side check
-# cannot work: the bind mount makes the path look mounted from inside, and
-# Docker auto-creates missing bind sources.
-#
-# Lifecycle is owned by the host, not by Docker:
-#   restart: "no"                  Docker never auto-starts it (so not on boot)
-#   pre_deploy: mountpoint check   Komodo refuses to deploy with the drive out
-#   backrest-guard.service         starts it at boot, but only if it is mounted
-#
-# After plugging a drive in:  sudo systemctl start backrest-guard
-#
-# UNMOUNTED ON PURPOSE -- `tertiary-1tb` in configs/backrest/config.json points
-# at /repos/tertiary, and there is no bind mount for it below. That is the
-# exact hazard described above, so the plan is left unschedulable and offline
-# (all plans here are `schedule.disabled: true`) rather than being "fixed" by
-# mounting something. Until a real drive is mounted there:
-#
-#   * do NOT run or start Backrest with the intent of backing up to it
-#   * do NOT add a bind mount to an unmounted host path -- that reintroduces
-#     the silent empty-repo-on-root-SSD failure with no test to catch it
-#
-# There is no third backup drive on this host today: the two 7.3T disks are
-# linux_raid_member partitions, and fstab declares only LABEL=backup-5tb.
-# /mnt/backup-500gb holds a stale encrypted repo with 0 snapshots and lives on
-# the root SSD -- do not point anything at it.
-#
-# To enable it for real: attach a drive, add its fstab entry, add the bind
-# mount here, extend backrest-guard.sh to require that mountpoint, then set
-# `autoInitialize`/password for tertiary-1tb in the live config.
+# The host guard verifies the 12TB mount's UUID and writeability before
+# startup or deployment. A directory existing is not proof of a mounted disk.
+# Install scripts/backrest-guard.sh at /usr/local/sbin/backrest-guard.sh and
+# store the expected filesystem UUID in /etc/backrest-disk.uuid (host only).
+# After plugging it in: sudo mount /mnt/backup-12tb, then start the guard.
+# Old repos stay in Backrest's config but are deliberately not mounted.
 
 services:
   backrest:
@@ -44,6 +14,11 @@ services:
     hostname: backrest
     # Intentionally NOT "unless-stopped": the guard owns this lifecycle.
     restart: "no"
+    cpus: 1.0
+    cpu_shares: 2
+    # Keep the original entrypoint, but make every child inherit nice +19
+    # and idle I/O, including restic backup, check, prune and restore.
+    entrypoint: ["/sbin/tini", "--", "nice", "-n", "19", "ionice", "-c", "3", "/docker-entrypoint"]
     ports:
       - ${BACKREST_PORT:-9898}:9898
     volumes:
@@ -54,11 +29,18 @@ services:
       - ${CONFIGS}:/userdata/configs:ro
       - ${UPLOAD_LOCATION}:/userdata/immich-uploads:ro
       - ${DATA}/media:/userdata/media:ro
-      # Backup drives. Host mount points exist even when unplugged -- see the
-      # warning above. primary = 5TB, secondary = 1TB (not always connected).
-      - /mnt/backup-5tb:/repos/primary
-      - /mnt/backup-1tb:/repos/secondary
+      - type: bind
+        source: /mnt/backup-12tb/restic-backrest
+        target: /repos/12tb
+        bind:
+          create_host_path: false
+    # Prevent unavailable legacy repos from initializing on the root disk.
+    tmpfs:
+      - /repos:ro,size=1m
     environment:
       - BACKREST_DATA=/data
       - BACKREST_CONFIG=/config/config.json
       - XDG_CACHE_HOME=/cache
+      - RESTIC_COMPRESSION=off
+      - GOMAXPROCS=1
+      - RESTIC_READ_CONCURRENCY=1

@@ -36,7 +36,11 @@
           }
         }
       ],
-      "commandPrefix": {}
+      "flags": ["--compression=off"],
+      "commandPrefix": {
+        "ioNice": "IO_IDLE",
+        "cpuNice": "CPU_LOW"
+      }
     },
     {
       "id": "secondary-1tb",
@@ -57,7 +61,11 @@
           "clock": "CLOCK_LAST_RUN_TIME"
         }
       },
-      "commandPrefix": {}
+      "flags": ["--compression=off"],
+      "commandPrefix": {
+        "ioNice": "IO_IDLE",
+        "cpuNice": "CPU_LOW"
+      }
     },
     {
       "id": "tertiary-1tb",
@@ -78,7 +86,45 @@
           "clock": "CLOCK_LAST_RUN_TIME"
         }
       },
-      "commandPrefix": {}
+      "flags": ["--compression=off"],
+      "commandPrefix": {
+        "ioNice": "IO_IDLE",
+        "cpuNice": "CPU_LOW"
+      }
+    },
+    {
+      "id": "backup-12tb",
+      "uri": "/repos/12tb",
+      "password": "<RESTIC_REPO_PASSWORD>",
+      "autoInitialize": true,
+      "flags": ["--compression=off"],
+      "env": ["GOMAXPROCS=1", "RESTIC_READ_CONCURRENCY=1"],
+      "hooks": [
+        {
+          "conditions": [
+            "CONDITION_ANY_ERROR",
+            "CONDITION_SNAPSHOT_SUCCESS",
+            "CONDITION_CHECK_SUCCESS",
+            "CONDITION_FORGET_SUCCESS",
+            "CONDITION_PRUNE_SUCCESS"
+          ],
+          "actionDiscord": {
+            "webhookUrl": "<DISCORD_WEBHOOK_URL>",
+            "template": "**{{ if .Plan.Id }}{{ .Plan.Id }}{{ else }}{{ if .Repo }}{{ .Repo.Id }}{{ end }}{{ end }}** — {{ .EventName .Event }}\n{{- if .Error }}\n```\n{{ .Error }}\n```\n{{- end }}\n{{- if .SnapshotStats }}\n{{ if .SnapshotStats.DataAdded }}Added **{{ .FormatSizeBytes .SnapshotStats.DataAdded }}** · {{ else }}No new data · {{ end }}{{ .SnapshotStats.TotalFilesProcessed }} files · {{ .FormatDuration .Duration }}\n{{- end }}"
+          }
+        }
+      ],
+      "prunePolicy": {
+        "schedule": { "disabled": true, "clock": "CLOCK_LAST_RUN_TIME" },
+        "maxUnusedPercent": 10
+      },
+      "checkPolicy": {
+        "schedule": { "disabled": true, "clock": "CLOCK_LAST_RUN_TIME" }
+      },
+      "commandPrefix": {
+        "ioNice": "IO_IDLE",
+        "cpuNice": "CPU_LOW"
+      }
     }
   ],
   "plans": [
@@ -135,6 +181,27 @@
       "retention": {
         "policyKeepLastN": 5
       }
+    },
+    {
+      "id": "critical-12tb",
+      "repo": "backup-12tb",
+      "paths": ["/userdata/configs", "/userdata/immich-uploads"],
+      "excludes": [
+        "/userdata/configs/jellyfin-config/data/introskipper",
+        "/userdata/configs/backrest/cache",
+        "/userdata/configs/backrest/data",
+        "/userdata/configs/backrest/config/config.json.pre-12tb-*"
+      ],
+      "schedule": { "disabled": true, "clock": "CLOCK_LOCAL" },
+      "retention": { "policyKeepLastN": 5 }
+    },
+    {
+      "id": "media-12tb",
+      "repo": "backup-12tb",
+      "paths": ["/userdata/media"],
+      "excludes": ["/userdata/media/gallery"],
+      "schedule": { "disabled": true, "clock": "CLOCK_LOCAL" },
+      "retention": { "policyKeepLastN": 3 }
     },
     {
       "id": "media",

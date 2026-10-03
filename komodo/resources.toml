@@ -142,6 +142,7 @@ tags = ["prod", "backup"]
   branch = "master"
   file_paths = ["stacks/backrest.yml"]
   auto_pull = false
+  pre_deploy = { command = "/usr/local/sbin/backrest-guard.sh check" }
   poll_for_updates = true
   environment = """
 DATA = [[DATA]]
@@ -289,4 +290,3 @@ VALHEIM_SERVER_PUBLIC = false
 # Because GitHub cannot reach a tailnet-only Core, the sync webhook will never
 # fire. Core polls the repo instead (resource_poll_interval, 1 hour by default),
 # or you run it by hand.
-

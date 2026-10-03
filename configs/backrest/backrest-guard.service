@@ -1,0 +1,14 @@
+[Unit]
+Description=Start Backrest only with the verified backup disk mounted
+After=docker.service network-online.target
+Requires=docker.service
+ConditionPathExists=/usr/local/sbin/backrest-guard.sh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/backrest-guard.sh
+# An unplugged drive is expected; do not latch into active (exited).
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target
