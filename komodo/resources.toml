@@ -133,7 +133,7 @@ PIHOLE_PASSWORD = [[PIHOLE_PASSWORD]]
 
 [[stack]]
 name = "backrest"
-description = "own project: start is gated on the backup drive being mounted"
+description = "own project; start manually once the backup drive is mounted"
 tags = ["prod", "backup"]
   [stack.config]
   server = "bigmt"
@@ -142,7 +142,11 @@ tags = ["prod", "backup"]
   branch = "master"
   file_paths = ["stacks/backrest.yml"]
   auto_pull = false
-  pre_deploy = { command = "/usr/local/sbin/backrest-guard.sh check" }
+  # No pre-deploy hook. There was one (backrest-guard.sh) until 2026-10-28; it is
+  # gone by request. This is stated as a no-op rather than deleted because the
+  # Resource Sync is a partial merge and omitting the field would leave the old
+  # command in place.
+  pre_deploy = { command = "true" }
   poll_for_updates = true
   environment = """
 DATA = [[DATA]]

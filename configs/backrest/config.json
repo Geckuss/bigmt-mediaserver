@@ -5,9 +5,10 @@
   "repos": [
     {
       "id": "primary-5tb",
-      "uri": "/repos/primary",
-      "guid": "83f51921b63ba76de8fb8cec29927f6dff90f1929bbdbd256c7ba33994e529d2",
+      "uri": "/repos/5tb",
+      "guid": "0e59fd4c051ab2eab7e20062043ba15a12958e7924b8ce44934f90c3cf49cedf",
       "password": "<RESTIC_REPO_PASSWORD>",
+      "autoInitialize": false,
       "prunePolicy": {
         "schedule": {
           "disabled": true,
@@ -94,9 +95,9 @@
     },
     {
       "id": "backup-12tb",
-      "uri": "/repos/12tb",
+      "uri": "/repos/12tb/restic-backrest",
       "password": "<RESTIC_REPO_PASSWORD>",
-      "autoInitialize": true,
+      "autoInitialize": false,
       "flags": ["--compression=off"],
       "env": ["GOMAXPROCS=1", "RESTIC_READ_CONCURRENCY=1"],
       "hooks": [

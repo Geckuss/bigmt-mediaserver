@@ -1,19 +1,25 @@
 # Backrest, in its own project on purpose.
 #
-# The host guard verifies the 12TB mount's UUID and writeability before
-# startup or deployment. A directory existing is not proof of a mounted disk.
-# Install scripts/backrest-guard.sh at /usr/local/sbin/backrest-guard.sh and
-# store the expected filesystem UUID in /etc/backrest-disk.uuid (host only).
-# After plugging it in: sudo mount /mnt/backup-12tb, then start the guard.
-# Old repos stay in Backrest's config but are deliberately not mounted.
+# No guard and no gating: mount the disk you want to back up, then start the
+# stack whenever you want. Two conventions do the job the old guard did:
+#
+#   * The repositories are bound from the disk MOUNTPOINTS, not from repo
+#     subdirectories. A mountpoint always exists, so an absent disk shows up as
+#     an empty directory and Docker never creates a repo path on the root SSD.
+#   * autoInitialize is OFF for every repo, so an empty directory is a loud
+#     "repository not initialised" error rather than a brand-new repository that
+#     reports every plan as successful.
+#
+# Old 1TB repos stay in Backrest's config but are not mounted; the read-only
+# /repos tmpfs is what stops them initialising onto container or root storage.
 
 services:
   backrest:
     image: garethgeorge/backrest:latest
     container_name: backrest
     hostname: backrest
-    # Intentionally NOT "unless-stopped": the guard owns this lifecycle.
-    restart: "no"
+    # Survives a reboot. Stop it (docker stop / Komodo) and it stays stopped.
+    restart: unless-stopped
     cpus: 1.0
     cpu_shares: 2
     # Keep the original entrypoint, but make every child inherit nice +19
@@ -30,11 +36,11 @@ services:
       - ${CONFIGS}:/userdata/configs:ro
       - ${UPLOAD_LOCATION}:/userdata/immich-uploads:ro
       - ${DATA}/media:/userdata/media:ro
-      - type: bind
-        source: /mnt/backup-12tb/restic-backrest
-        target: /repos/12tb
-        bind:
-          create_host_path: false
+      # Repositories (rw). The 12 TB repo is a directory on the disk, the 5 TB
+      # repo is the disk root itself (its historical layout), so the two repo
+      # URIs differ: /repos/12tb/restic-backrest and /repos/5tb.
+      - /mnt/backup-12tb:/repos/12tb
+      - /mnt/backup-5tb:/repos/5tb
     # Prevent unavailable legacy repos from initializing on the root disk.
     tmpfs:
       - /repos:ro,size=1m
